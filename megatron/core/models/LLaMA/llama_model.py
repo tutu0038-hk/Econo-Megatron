@@ -7,7 +7,7 @@ import torch
 
 from megatron.training import get_args
 from megatron.core import tensor_parallel
-from .module import MegatronModule
+from megatron.core.transformer.module import MegatronModule
 
 from megatron.legacy.model.enums import AttnMaskType
 from megatron.legacy.model.language_model import parallel_lm_logits
