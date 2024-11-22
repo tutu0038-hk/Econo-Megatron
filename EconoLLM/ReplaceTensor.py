@@ -1139,12 +1139,9 @@ def init(rank0, world_size0):
     computationSpeed = 1979 * TFlops
     memory = 80 * GB
 
-    filename = os.getcwd() + "/result2/p%d.txt" % rank0
+    filename = os.getcwd() + "/result/p%d.txt" % rank0
     recordFile[rank0] = open(filename, "w")
     
-    filename = os.getcwd() + "/result2/p%d.txt" % rank0
-    recordFile[rank0] = open(filename, "r")
-
     print("rank = ", rank0, "world_size = ", world_size0)
     nn.functional.linear = _Linear
     torch.matmul = _matmul
