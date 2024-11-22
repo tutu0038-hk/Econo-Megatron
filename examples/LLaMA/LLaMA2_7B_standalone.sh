@@ -45,7 +45,7 @@ options=" \
         --RMSNorm \
         --layernorm-epsilon 1e-6 \
         --causal-lm \
-    --tokenizer-type PretrainedFromHF \
+    --tokenizer-type Llama2Tokenizer \
         --tokenizer-name-or-path $TOKENIZER_PATH \
         --make-vocab-size-divisible-by 1 \
     --init-method-std 0.01 \
