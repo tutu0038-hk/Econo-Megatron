@@ -34,6 +34,7 @@ from megatron.core.models.gpt.gpt_layer_specs import (
     get_gpt_layer_with_transformer_engine_spec,
 )
 
+import EconoLLM.ReplaceTensor 
 
 stimer = StragglerDetector()
 
@@ -122,18 +123,18 @@ def model_provider(pre_process=True, post_process=True) -> Union[GPTModel, megat
 
 def get_batch(data_iterator):
     """Generate a batch."""
+    args = get_args()
+    datatype = torch.int64
 
-    # TODO: this is pretty hacky, find a better way
-    if (not mpu.is_pipeline_first_stage()) and (not mpu.is_pipeline_last_stage()):
-        return None, None, None, None, None
-
-    # get batches based on the TP rank you are on
-    batch = get_batch_on_this_tp_rank(data_iterator)
-
-    # slice batch along sequence dimension for context parallelism
-    batch = get_batch_on_this_cp_rank(batch)
-
-    return batch.values()
+    dim = [args.global_batch_size, args.seq_length, args.hidden_size]
+    tokens_ = EconoLLM.ReplaceTensor.FetchFakeTensor(dim, datatype.itemsize)
+    # data_b = tensor_parallel.broadcast_data(keys, data, datatype)
+    
+    # Unpack.
+    labels = tokens_[:, 1:].contiguous()
+    tokens = tokens_[:, :-1].contiguous()
+    tokens = EconoLLM.ReplaceTensor.FetchFakeTensor(dim, datatype.itemsize)
+    return tokens
 
 
 def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
@@ -277,3 +278,8 @@ if __name__ == "__main__":
         forward_step,
         args_defaults={'tokenizer_type': 'GPT2BPETokenizer'},
     )
+
+    rank = torch.distributed.get_rank()
+    EconoLLM.ReplaceTensor.print_trace(rank)
+    if rank == 0:
+        EconoLLM.ReplaceTensor.solve()
