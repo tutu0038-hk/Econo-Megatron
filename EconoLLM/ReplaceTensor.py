@@ -65,8 +65,12 @@ NET_INITTED = True
 debugging = False
 gpus = 2000
 pool = [0.0] * (gpus + 1)
+memoryUsage = [0.0] * (gpus + 1)
 Trace = [0] * gpus
-f = [0] * gpus
+recordFile = [0] * gpus
+computationFile = [0] * gpus
+DetailRecord = [""] * gpus
+RecordPool
 
 KB = 1024
 MB = 1024 * KB
@@ -78,16 +82,6 @@ communicationSpeed = 20 * GB
 comunicationLatency = 10 * 1e-6
 computationSpeed = 83 * TFlops
 memory = 24 * GB
-
-class GPUconfig:
-    rank : int
-    world_size : int
-
-    def __init__(self, rank0, world_size0):
-        self.rank = rank0
-        self.world_size = world_size0
-
-config = GPUconfig(0, 8)
 
 class records:
     type : int
@@ -109,18 +103,17 @@ def WriteRecord(type, flops, communicationFlops, groups):
     strrank = ""
     for item in ranks:
         strrank += str(item) + " "
-    # if torch.distributed.get_rank() == 5:
-    #     print("flops =", flops)
-    f[torch.distributed.get_rank()].writelines([str(torch.distributed.get_rank()) + " " + str(type) + " " + str(flops) + " " +str(communicationFlops / communicationSpeed) + "\n" + strrank + "\n"])
-    pool[gpus] += pool[torch.distributed.get_rank()]   
-    pool[torch.distributed.get_rank()] = 0
+    rank = torch.distributed.get_rank()
+    recordFile[rank].writelines([str(rank) + " " + str(type) + " " + str(flops) + " " +str(communicationFlops / communicationSpeed) + " " + str(memoryUsage[rank]) + "\n" + strrank + "\n"])
+    if flops in 
+    pool[rank] = 0
 
 def WriteRecordSendrecv(type, flops, communicationFlops, groups):
     strrank = str(groups)
-    f[torch.distributed.get_rank()].writelines([str(torch.distributed.get_rank()) + " " + str(type) + " " + str(flops) + " " +str(communicationFlops / communicationSpeed) + "\n" + strrank + "\n"])
-    pool[gpus] += pool[torch.distributed.get_rank()]   
-    pool[torch.distributed.get_rank()] = 0
-
+    rank = torch.distributed.get_rank()
+    recordFile[rank].writelines([str(rank) + " " + str(type) + " " + str(flops) + " " +str(communicationFlops / communicationSpeed) + " " + str(memoryUsage[rank]) + "\n" + strrank + "\n"])   
+    pool[rank] = 0
+    
 def _RecordCompute(flops):
     pool[torch.distributed.get_rank()] += flops / computationSpeed
 
@@ -131,7 +124,6 @@ def clearpool():
     if pool[torch.distributed.get_rank()] > 0:
         WriteRecord(0, pool[torch.distributed.get_rank()], 0, None)
         pool[torch.distributed.get_rank()] = 0
-    pool[gpus] = 0
 
 def _getsize(input):
     size = 1
@@ -204,6 +196,7 @@ class FakeTensorWithNoData(torch.Tensor):
     fake_mode: "FakeTensorMode"
     elementSize : int
     gradientSize : int
+    allocateNewTensor : bool
 #   constant: Optional[torch.Tensor]
 
     # This memorizes the unbacked SymInt representing the number of nonzero
@@ -241,13 +234,10 @@ class FakeTensorWithNoData(torch.Tensor):
             input = (key, )
         else:
             input = key
-
         if isinstance(key, str):
-            return self
-        
+            return self     
         if isinstance(key, int):
-            input = (slice(key), )
-        
+            input = (slice(key), )      
         length = len(self.fakeShape)
         outDim = [0] * length
         i = 0
@@ -261,7 +251,6 @@ class FakeTensorWithNoData(torch.Tensor):
                 else:
                     outDim[i] = len(range(*slices.indices(self.fakeShape[i])))
                     i += 1
-        
         for j in range(i, length):
             outDim[j] = self.fakeShape[j + cnt]
 
@@ -305,7 +294,6 @@ class FakeTensorWithNoData(torch.Tensor):
     
     def size(self, dim=None):
         if dim != None:
-            #print(self.fakeShape, dim)
             return self.fakeShape[dim]
         else:
             return tuple(self.fakeShape)
@@ -320,7 +308,7 @@ class FakeTensorWithNoData(torch.Tensor):
         return output
         
     @staticmethod
-    def __new__(cls, dim, size):
+    def __new__(cls, dim, size, func, allocateNewTensor = False, prevfunc = None):
         self = super().__new__(cls)
         if type(dim) is list:
             self.fakeShape = dim
@@ -328,7 +316,17 @@ class FakeTensorWithNoData(torch.Tensor):
             self.fakeShape = list(dim)
         self.elementSize = size
         self.gradientSize = 0
+        self.allocateNewTensor = allocateNewTensor
+        if allocateNewTensor:
+            memoryUsage[torch.distributed.get_rank()] += _getsize(self.fakeShape)
+        self.nowFunc = func
+        self.prevFunc = prevfunc
         return self
+
+    def __del__(self):
+        if self.allocateNewTensor:
+            memoryUsage[torch.distributed.get_rank()] -= _getsize(self.fakeShape)
+            print(torch.distributed.get_rank(), memoryUsage[torch.distributed.get_rank()])
 
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -437,7 +435,7 @@ class FakeTensorWithNoData(torch.Tensor):
             # mismatching devices of non-zero dim tensors, throw
             # This might be valid behavior and need to be explicitly modeled, e.g. reshape_as
             raise RuntimeError(
-                f"Unhandled FakeTensor Device Propagation for {func}, found two different devices {common_device}, {t.device}"
+                recordFile"Unhandled FakeTensor Device Propagation for {func}, found two different devices {common_device}, {t.device}"
             )
 
         for arg in flat_args:
@@ -545,6 +543,7 @@ class FakeTensorConverterWithNoData:
         fake_mode,
         basicDim,
         basicSize,
+        funcName,
         shape = None,
         make_constant=False,
         shape_env=None,
@@ -555,6 +554,7 @@ class FakeTensorConverterWithNoData:
         out = FakeTensorWithNoData(
                 basicDim,
                 basicSize,
+                funcName,
             )
         return out
 
@@ -576,6 +576,7 @@ def _from_tensor(
         self,
         basicDim,
         basicSize,
+        funcName = None,
         *,
         static_shapes=None,
         source: Optional[Source] = None,
@@ -592,7 +593,8 @@ def _from_tensor(
         return self.fake_tensor_converter.from_real_tensor(
             self,
             basicDim,
-            basicSize,
+            basicSize
+            funcName, 
             shape_env=shape_env,
             source=source,
             symbolic_context=symbolic_context,
@@ -603,13 +605,8 @@ mode = FakeTensorMode(allow_non_fake_inputs = True)
 mode.fake_tensor_converter = FakeTensorConverterWithNoData()
 
 memoryPool = {}
-def FetchFakeTensor(outDim, outSize):
-    return mode.from_tensor(outDim, outSize)
-
-# async def commnicatorasync(r, t, tp) -> None:
-#     async with Channel('127.0.0.1', 50051) as channel:
-#         greeter = GreeterStub(channel)
-#         reply = await greeter.communicator(CommunicatorInput(rank = r, time = pool[torch.distributed.get_rank()], type = tp))
+def FetchFakeTensor(outDim, outSize, funcName = None):
+    return mode.from_tensor(outDim, outSize, funcName)
 
 def MakeFake(self):
     if (self.__class__.__name__ == "FakeTensorWithNoData"):
@@ -654,6 +651,7 @@ def _Linear(input: Tensor, weight, bias: Optional[Tensor] = None,
     output.gradientSize = input.gradientSize + weight.gradientSize + _getsize(output)
     _RecordCompute(flops)
     _RecordMemory(sizes)
+    DetailRecord[torch.distributed.get_rank()] += "Linear" + input.fakeShape + " " + weight.FakeShape + "\n"
     return output
 
 def _matmul(tensorA, tensorB):
@@ -665,7 +663,6 @@ def _matmul(tensorA, tensorB):
     tensorB = MakeFake(tensorB)
     dim1 = len(tensorA.fakeShape)
     dim2 = len(tensorB.fakeShape)
-    #print(tensorA.fakeShape, tensorB.fakeShape)
     outDim = [0] * dim1
     flops = 1
     for i in range(dim1):
@@ -679,12 +676,6 @@ def _matmul(tensorA, tensorB):
     output.gradientSize = tensorA.gradientSize + tensorB.gradientSize + _getsize(output)
     _RecordCompute(flops)    
     _RecordMemory(sizes)
-    # if torch.distributed.get_rank() == 5:
-    #     print("_matmul", tensorA.fakeShape)
-    #     print("_matmul", tensorB.fakeShape)
-    #     if tensorA.fakeShape[2] - 170.66666666666666 < 0.01:
-    #         print(1/0)
-    #     print(flops)
     return output
 
 def _softmax(self, dim = None, _stacklevel=5):
@@ -693,7 +684,6 @@ def _softmax(self, dim = None, _stacklevel=5):
     return self
 
 def _dropout(input, p=0.5, training=True, inplace=False):
-    #print("_dropout", input)
     return input
 
 def _embeddings(input, weight, padding_idx=None, max_norm=None, norm_type=2.0, scale_grad_by_freq=False, sparse=False):
@@ -714,10 +704,6 @@ def _embeddings(input, weight, padding_idx=None, max_norm=None, norm_type=2.0, s
     sizes = _getsize(weight) + _getsize(input) + _getsize(output)
     _RecordCompute(flops)
     _RecordMemory(sizes)
-    # if torch.distributed.get_rank() == 5:
-    #     print("_embeddings =", input.fakeShape)
-    #     print(weight.fakeShape)
-    #     print(flops)
     return output
 
 def _baddbmm(input, batch1, batch2, beta=1, alpha=1, out=None):
@@ -816,7 +802,7 @@ def _view(self, *fakeShape: ShapeType):
 
 def _expand(self, *fakeShape: ShapeType):
     allShapes = []
-    print("_expand", self.fakeShape)
+    #print("_expand", self.fakeShape)
     for i in fakeShape:
         if type(i) is tuple:
             for x in i:
@@ -824,7 +810,7 @@ def _expand(self, *fakeShape: ShapeType):
         else:
             allShapes.append(i)    
     self.fakeShape = allShapes
-    print("_expand", allShapes)
+    #print("_expand", allShapes)
     return self
 
 def _transpose(self, dim0, dim1):
@@ -1121,8 +1107,25 @@ def _detach(self):
     return self
 
 def _backward(input, grad_tensors = None):
-    #WriteRecord(9, pool[torch.distributed.get_rank()] + input.gradientSize / computationSpeed, 0, None)
+    rank = torch.distributed.get_rank()
+    WriteRecord(9, pool[rank], 0, None)
+    print(input.funcName)
+    
+    if hasattr(input.funcName, "backward"):
+        output = input.funcName.backward(input)
+    else:
+        _RecordCompute(input.GradientSize)
+        output = _backward(input.prevFunc, grad_tensors)
+    total = pool[rank]
+    WriteRecord(9, pool[rank] + total / computationSpeed, 0, None)
     return None
+
+def _apply(self, input):
+    print("jiashu, backward detected")
+    if hasattr(self, "backward"):
+        DetailRecord.writeline()
+    else:
+        self.forward(input)
 
 def _synchronize():
     pass
@@ -1138,10 +1141,11 @@ def init(rank0, world_size0):
     memory = 80 * GB
 
     filename = os.getcwd() + "/result2/p%d.txt" % rank0
-    global f
-    f[rank0] = open(filename, "w")
-    config.rank = rank0
-    config.world_size = world_size0
+    recordFile[rank0] = open(filename, "w")
+    
+    filename = os.getcwd() + "/result2/p%d.txt" % rank0
+    recordFile[rank0] = open(filename, "r")
+
     print("rank = ", rank0, "world_size = ", world_size0)
     nn.functional.linear = _Linear
     torch.matmul = _matmul
@@ -1207,15 +1211,16 @@ def init(rank0, world_size0):
     ##
     torch.autograd.backward = _backward
     torch.Tensor.retain_grad = _retain_grad
+    torch.nn.Module.apply = _apply
 
 def solve():
     print("____________solving result____________")
     print("______________________________________")
-    gpus = config.world_size
+    gpus = torch.distributed.get_world_size()
     status = [gpus] * gpus
-    ## gpus means running
-    ## +x means waiting for send or recv x
-    ## -x means barried by x type operation
+    ## status = gpus : running
+    ## +x : thread waiting for send or recv x
+    ## -x : thread is barried by x type operation
     times = [0] * gpus
     pretimes = [0] * gpus
     ## running time for all gpus
@@ -1223,23 +1228,20 @@ def solve():
     ## processing recordID now
     q = PriorityQueue()
 
-
     for rank in range(gpus):
         filename = os.getcwd() + "/result2/p%d.txt" % rank
-        global f
-        f[rank] = open(filename, "r")
+        recordFile[rank] = open(filename, "r")
 
     # filename = os.getcwd() + "/result/Trace.txt"
     # output = open(filename, "w")
-    
     def _insert(rank, index):
-        line = f[rank].readline()
+        line = recordFile[rank].readline()
         if line:
             string = str.split(line)
             types = int(string[1])
             flops = float(string[2])
             comni = float(string[3])
-            line = f[rank].readline()
+            line = recordFile[rank].readline()
             string = str.split(line)
             ranks = []
             for i in string:
@@ -1259,20 +1261,20 @@ def solve():
         index[rank] = i
         pretimes[rank] = realTime
 
-        # if totalTime < realTime and printTrace:
-        print(totalTime)
-        print(times)
-        print(status)
-        gpuStatus = ""
-        for i in range(gpus):
-            gpuStatus += "GPU %d: " % i
-            if status[i] == gpus:
-                gpuStatus += "Running, "
-            else:
-                gpuStatus += "Waiting, "
-        print(gpuStatus)
-        totalTime = realTime
-        msd = input("")
+        if totalTime < realTime and printTrace:
+            print(totalTime)
+            print(times)
+            print(status)
+            gpuStatus = ""
+            for i in range(gpus):
+                gpuStatus += "GPU %d: " % i
+                if status[i] == gpus:
+                    gpuStatus += "Running, "
+                else:
+                    gpuStatus += "Waiting, "
+            print(gpuStatus)
+            totalTime = realTime
+            msd = input("")
 
         if Record.type == 1 or Record.type == 2 or Record.type == 6 or Record.type == 7 or Record.type == 8: 
             #all_gather or all_reduce or broadcast etc. all these operation should wait for the process in the group
@@ -1331,7 +1333,7 @@ def print_trace(rank):
     return
     cnt = 0
     for records in Trace[rank]:
-        f.writelines([str(rank), str(records.type), str(records.flops), str(records.communicationFlops), str(records.ranks)])
+        recordFile.writelines([str(rank), str(records.type), str(records.flops), str(records.communicationFlops), str(records.ranks)])
         
 if __name__ == "__main__":
     solve()
