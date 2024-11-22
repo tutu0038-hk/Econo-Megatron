@@ -12,7 +12,7 @@ from megatron.training import get_tokenizer
 from megatron.core import tensor_parallel
 from megatron.core.enums import ModelType
 from megatron.legacy.data.dataset_utils import build_train_valid_test_datasets
-from megatron.core.models.LLaMA import LLaMAModel
+from megatron.core.models.LLaMA.llama_model import LLaMAModel
 from megatron.training import pretrain
 from megatron.training.utils import get_ltor_masks_and_position_ids
 from megatron.training.utils import average_losses_across_data_parallel_group
