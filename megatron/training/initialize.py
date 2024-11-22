@@ -240,6 +240,9 @@ def _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks):
     args = get_args()
 
     device_count = torch.cuda.device_count()
+
+    EconoLLM.ReplaceTensor.init(args.rank, args.world_size)
+    
     if torch.distributed.is_initialized():
 
         if args.rank == 0:
@@ -272,7 +275,6 @@ def _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks):
 
         torch.distributed.init_process_group(**init_process_group_kwargs)
 
-    EconoLLM.ReplaceTensor.init(args.rank, args.world_size)
     # EconoEdit: Replacing pytorch API
 
     # Set the tensor model-parallel, pipeline model-parallel, and
