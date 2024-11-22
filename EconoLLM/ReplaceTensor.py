@@ -70,7 +70,6 @@ Trace = [0] * gpus
 recordFile = [0] * gpus
 computationFile = [0] * gpus
 DetailRecord = [""] * gpus
-RecordPool
 
 KB = 1024
 MB = 1024 * KB
@@ -105,7 +104,6 @@ def WriteRecord(type, flops, communicationFlops, groups):
         strrank += str(item) + " "
     rank = torch.distributed.get_rank()
     recordFile[rank].writelines([str(rank) + " " + str(type) + " " + str(flops) + " " +str(communicationFlops / communicationSpeed) + " " + str(memoryUsage[rank]) + "\n" + strrank + "\n"])
-    if flops in 
     pool[rank] = 0
 
 def WriteRecordSendrecv(type, flops, communicationFlops, groups):
@@ -1123,7 +1121,8 @@ def _backward(input, grad_tensors = None):
 def _apply(self, input):
     print("jiashu, backward detected")
     if hasattr(self, "backward"):
-        DetailRecord.writeline()
+        rank = torch.distributed.get_rank()
+        DetailRecord[rank].append((self, input))
     else:
         self.forward(input)
 
