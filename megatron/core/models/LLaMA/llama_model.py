@@ -52,8 +52,8 @@ class LLaMAModel(MegatronModule):
                  pre_process=True,
                  post_process=True):
         args = get_args()
-        super(LLaMAModel, self).__init__(share_word_embeddings=not args.untie_embeddings_and_output_weights)
-
+        super(LLaMAModel, self).__init__(share_embeddings_and_output_weights=not args.untie_embeddings_and_output_weights)
+        
         self.parallel_output = parallel_output
         self.pre_process = pre_process
         self.post_process = False #EconoEdit : post_process
