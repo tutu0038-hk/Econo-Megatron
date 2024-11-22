@@ -388,68 +388,68 @@ class FakeTensorWithNoData(torch.Tensor):
         with fake_mode:  # type: ignore[attr-defined]
             return func(*args, **kwargs)
 
-    @staticmethod
-    def _find_common_device(func, flat_args) -> Tuple[torch.device, bool]:
-        # Returns: (common_device, has_scalar_only_inputs)
+    # @staticmethod
+    # def _find_common_device(func, flat_args) -> Tuple[torch.device, bool]:
+    #     # Returns: (common_device, has_scalar_only_inputs)
 
-        # cpu - zero-dim tensors can be called in cuda kernels,
-        # so overwrite the common_device if it the only existing
-        # device comes from a cpu zero-dim tensor
-        common_device = None
-        has_scalar_only_inputs = False
-        is_cpu_zero_dim = None
+    #     # cpu - zero-dim tensors can be called in cuda kernels,
+    #     # so overwrite the common_device if it the only existing
+    #     # device comes from a cpu zero-dim tensor
+    #     common_device = None
+    #     has_scalar_only_inputs = False
+    #     is_cpu_zero_dim = None
 
-        def cpu_zero_dim(t):
-            return t.device.type == "cpu" and t.dim() == 0
+    #     def cpu_zero_dim(t):
+    #         return t.device.type == "cpu" and t.dim() == 0
 
-        def merge_devices(t):
-            nonlocal common_device
-            nonlocal is_cpu_zero_dim
-            if not isinstance(t, FakeTensor):
-                return
+    #     def merge_devices(t):
+    #         nonlocal common_device
+    #         nonlocal is_cpu_zero_dim
+    #         if not isinstance(t, FakeTensor):
+    #             return
 
-            if common_device is None:
-                common_device = t.device
-                is_cpu_zero_dim = cpu_zero_dim(t)
-                return
+    #         if common_device is None:
+    #             common_device = t.device
+    #             is_cpu_zero_dim = cpu_zero_dim(t)
+    #             return
 
-            t_is_cpu_zero_dim = cpu_zero_dim(t)
-            if t.device == common_device:
-                if is_cpu_zero_dim:
-                    is_cpu_zero_dim = t_is_cpu_zero_dim
-                return
+    #         t_is_cpu_zero_dim = cpu_zero_dim(t)
+    #         if t.device == common_device:
+    #             if is_cpu_zero_dim:
+    #                 is_cpu_zero_dim = t_is_cpu_zero_dim
+    #             return
 
-            # mismatching devices !
-            # if current tensor is cpu 0 dim, defer to existing device
-            if t_is_cpu_zero_dim:
-                return
+    #         # mismatching devices !
+    #         # if current tensor is cpu 0 dim, defer to existing device
+    #         if t_is_cpu_zero_dim:
+    #             return
 
-            # current device is from cpu 0 dim tensor, overwrite
-            if is_cpu_zero_dim:
-                common_device = t.device
-                is_cpu_zero_dim = t_is_cpu_zero_dim
-                return
+    #         # current device is from cpu 0 dim tensor, overwrite
+    #         if is_cpu_zero_dim:
+    #             common_device = t.device
+    #             is_cpu_zero_dim = t_is_cpu_zero_dim
+    #             return
 
-            # mismatching devices of non-zero dim tensors, throw
-            # This might be valid behavior and need to be explicitly modeled, e.g. reshape_as
-            raise RuntimeError(
-                recordFile"Unhandled FakeTensor Device Propagation for {func}, found two different devices {common_device}, {t.device}"
-            )
+    #         # mismatching devices of non-zero dim tensors, throw
+    #         # This might be valid behavior and need to be explicitly modeled, e.g. reshape_as
+    #         raise RuntimeError(
+    #             recordFile"Unhandled FakeTensor Device Propagation for {func}, found two different devices {common_device}, {t.device}"
+    #         )
 
-        for arg in flat_args:
-            merge_devices(arg)
+    #     for arg in flat_args:
+    #         merge_devices(arg)
 
-        # some functions that allow Python numbers to bind to Tensors
-        # if we have failed to find a device, and we're running one of these operators,
-        # we must have scalar only inputs
-        if should_allow_numbers_as_tensors(func) and common_device is None:
-            # ops with scalar only inputs always have result on cpu
-            has_scalar_only_inputs = True
-            common_device = torch.device("cpu")
+    #     # some functions that allow Python numbers to bind to Tensors
+    #     # if we have failed to find a device, and we're running one of these operators,
+    #     # we must have scalar only inputs
+    #     if should_allow_numbers_as_tensors(func) and common_device is None:
+    #         # ops with scalar only inputs always have result on cpu
+    #         has_scalar_only_inputs = True
+    #         common_device = torch.device("cpu")
 
-        assert common_device is not None, f"Could not find common device for {func}"
+    #     assert common_device is not None, f"Could not find common device for {func}"
 
-        return common_device, has_scalar_only_inputs
+    #     return common_device, has_scalar_only_inputs
 
     # We must handle tolist in a special way for FakeTensors here in the case
     # where tolist is called from torch dispatch for tensor subclasses.
