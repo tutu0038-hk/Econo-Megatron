@@ -49,7 +49,7 @@ options=" \
     --micro-batch-size ${MICRO_BATCH_SIZE} \
         --global-batch-size ${GLOBAL_BATCH_SIZE} \
     --train-iters ${TRAIN_ITERS} \
-    --lr 6.0e-5 \--normalization RMSNorm
+    --lr 6.0e-5
         --lr-decay-iters 10 \
         --lr-warmup-iters 5 \
         --min-lr 6.0e-6 \
@@ -59,7 +59,6 @@ options=" \
         --adam-beta2 0.95 \
         --clip-grad 1.0 \
         --weight-decay 0.1 \
-        --overlapped-distributed-optimizer \
         --no-gradient-accumulation-fusion \
     --eval-interval ${EVAL_INTERVAL} \
         --eval-iters ${EVAL_ITERS} \
@@ -70,7 +69,6 @@ options=" \
         --tensorboard-queue-size 1000 \
         --log-timers-to-tensorboard \
         --log-validation-ppl-to-tensorboard \
-    --job-name ${JOB_NAME} \
     --bf16 \
     --recompute-activations \
         --recompute-granularity selective
