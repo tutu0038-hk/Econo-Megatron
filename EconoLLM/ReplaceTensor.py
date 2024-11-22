@@ -591,7 +591,7 @@ def _from_tensor(
         return self.fake_tensor_converter.from_real_tensor(
             self,
             basicDim,
-            basicSize
+            basicSize,
             funcName, 
             shape_env=shape_env,
             source=source,
