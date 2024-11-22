@@ -42,7 +42,7 @@ options=" \
         --swiglu \
         --ffn-hidden-size 11008\
         --disable-bias-linear \
-        --RMSNorm \
+        --normalization RMSNorm \
         --layernorm-epsilon 1e-6 \
         --causal-lm \
     --tokenizer-type Llama2Tokenizer \
@@ -52,7 +52,7 @@ options=" \
     --micro-batch-size ${MICRO_BATCH_SIZE} \
         --global-batch-size ${GLOBAL_BATCH_SIZE} \
     --train-iters ${TRAIN_ITERS} \
-    --lr 6.0e-5 \
+    --lr 6.0e-5 \--normalization RMSNorm
         --lr-decay-iters 10 \
         --lr-warmup-iters 5 \
         --min-lr 6.0e-6 \
