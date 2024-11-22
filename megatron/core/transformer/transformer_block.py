@@ -29,6 +29,8 @@ try:
 
     HAVE_TE = True
     LayerNormImpl = TENorm
+    get_cpu_offload_context = None
+    
 except ImportError:
     HAVE_TE = False
     get_cpu_offload_context = None
