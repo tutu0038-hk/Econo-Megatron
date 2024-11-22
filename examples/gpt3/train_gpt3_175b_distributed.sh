@@ -4,7 +4,7 @@
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-GPUS_PER_NODE=8
+GPUS_PER_NODE= 128
 # Change for multinode config
 MASTER_ADDR=localhost
 MASTER_PORT=6000
