@@ -243,8 +243,6 @@ def _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks):
 
     EconoLLM.ReplaceTensor.init(args.rank, args.world_size)
 
-    print(device_count)
-
     if torch.distributed.is_initialized():
 
         if args.rank == 0:
@@ -261,12 +259,12 @@ def _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks):
         if args.rank == 0:
             print("> initializing torch distributed ...", flush=True)
         # Manually set the device ids.
-        print(args.local_rank)
-        if device_count > 0:
-            torch.cuda.set_device(args.local_rank)
-            device_id = torch.device(f'cuda:{args.local_rank}')
-        else:
-            device_id = None
+        
+        # if device_count > 0:
+        #     torch.cuda.set_device(args.local_rank)
+        #     device_id = torch.device(f'cuda:{args.local_rank}')
+        # else:
+        #     device_id = None
 
         # Call the init process
         init_process_group_kwargs = {
