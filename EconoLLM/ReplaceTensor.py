@@ -1141,7 +1141,7 @@ def init(rank0, world_size0):
 
     filename = os.getcwd() + "/result/p%d.txt" % rank0
     recordFile[rank0] = open(filename, "w")
-    
+
     print("rank = ", rank0, "world_size = ", world_size0)
     nn.functional.linear = _Linear
     torch.matmul = _matmul
@@ -1176,6 +1176,7 @@ def init(rank0, world_size0):
     torch.nn.parameter.Parameter = _Parameter
     torch.nn.functional.dropout = _dropout
     torch.bmm = _matmul
+    torch.rand = _empty
 
     #torch.set_default_tensor_type = _set_default_type
     #torch.distributed.get_world_size =  _world_size
