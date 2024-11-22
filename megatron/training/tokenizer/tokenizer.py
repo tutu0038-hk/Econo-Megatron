@@ -18,6 +18,9 @@ from megatron.training.tokenizer.multimodal_tokenizer import MultimodalTokenizer
 
 
 def build_tokenizer(args, **kwargs):
+    #EconoEdit : not using tokenizer
+    args.padded_vocab_size = _vocab_size_with_padding(32000,args)
+    return
     """Initialize tokenizer."""
     if args.rank == 0:
         print('> building {} tokenizer ...'.format(args.tokenizer_type), flush=True)

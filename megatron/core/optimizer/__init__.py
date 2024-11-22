@@ -361,7 +361,21 @@ def get_megatron_optimizer(
     Returns:
         Instance of MegatronOptimizer.
     """
+    # Base optimizer.
+    param_groups = _get_param_groups(
+        model_chunks,
+        no_weight_decay_cond,
+        scale_lr_cond,
+        lr_mult,
+        lr=config.lr,
+        min_lr=config.min_lr,
+        decoupled_lr=config.decoupled_lr,
+        decoupled_min_lr=config.decoupled_min_lr,
+    )
 
+    optimizer = torch.optim.Adam(param_groups, lr = lr_mult)
+    return optimizer
+    #EconoEdit : optimizer not important
     log_single_rank(logger, logging.INFO, f'Setting up optimizer with config {config}')
 
     # Separate out first model chunk if overlapping param AG with optimizer step.

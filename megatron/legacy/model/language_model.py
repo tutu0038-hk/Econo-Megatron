@@ -373,7 +373,7 @@ class TransformerLanguageModel(MegatronModule):
             self._embedding_key = 'embedding'
 
         # Rotary positional embeddings
-        self.use_rotary_position_embeddings = args.position_embedding_type == 'rope'
+        self.use_rotary_position_embeddings = False #EconoEdit
         if self.use_rotary_position_embeddings:
             self.seq_length = args.seq_length
             rotary_dim = (

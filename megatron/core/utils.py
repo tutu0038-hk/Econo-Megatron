@@ -31,6 +31,7 @@ except ImportError:
 
 from megatron.core import parallel_state
 from megatron.core.dist_checkpointing.mapping import ShardedTensor
+from EconoLLM.ReplaceTensor import FetchFakeTensor
 
 logger = logging.getLogger(__name__)
 
@@ -165,19 +166,19 @@ class GlobalMemoryBuffer:
         self.buffer = {}
 
     def get_tensor(self, tensor_shape, dtype, name):
-        """
-        Returns (potentially) a sub-tensor from the self.buffer for the given shape.
-        """
-        required_len = reduce(operator.mul, tensor_shape, 1)
-        if (
-            self.buffer.get((name, dtype), None) is None
-            or self.buffer[(name, dtype)].numel() < required_len
-        ):
-            self.buffer[(name, dtype)] = torch.empty(
-                required_len, dtype=dtype, device=torch.cuda.current_device(), requires_grad=False
-            )
+        # required_len = reduce(operator.mul, tensor_shape, 1)
+        # if self.buffer.get((name, dtype), None) is None or \
+        #         self.buffer[(name, dtype)].numel() < required_len:
+        #     self.buffer[(name, dtype)] = \
+        #         torch.empty(required_len,
+        #                     dtype=dtype,
+        #                     device=torch.cuda.current_device(),
+        #                     requires_grad=False)
 
-        return self.buffer[(name, dtype)][0:required_len].view(*tensor_shape)
+        # return self.buffer[(name, dtype)][0:required_len].view(*tensor_shape)
+        out = FetchFakeTensor(tensor_shape, 4)
+        # EconoEdit : disable magatron memory pool
+        return out
 
 
 def _kernel_make_viewless_tensor(inp, requires_grad):

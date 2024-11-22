@@ -38,8 +38,9 @@ class MixedFusedLayerNorm(torch.nn.Module):
 
         self.apply_layernorm_1p = apply_layernorm_1p
 
-        global fused_layer_norm_cuda
-        fused_layer_norm_cuda = importlib.import_module("fused_layer_norm_cuda")
+        #global fused_layer_norm_cuda
+        #fused_layer_norm_cuda = importlib.import_module("fused_layer_norm_cuda")
+        #EconoEdit : not using apex now
 
         # List of hiddens sizes supported in the persistent layer norm kernel
         # If the hidden size is not supported, fall back to the non-persistent
@@ -77,23 +78,25 @@ class MixedFusedLayerNorm(torch.nn.Module):
 
   def forward(self, input):
 
-    weight = self.weight + 1 if self.apply_layernorm_1p else self.weight
+    # weight = self.weight + 1 if self.apply_layernorm_1p else self.weight
 
-    if self.no_persist_layer_norm:
-        assert fused_layer_norm_affine is not None, \
-            "fused_layer_norm_affine is not available, please install apex from https://github.com/NVIDIA/apex"
-        return fused_layer_norm_affine(input, weight, self.bias, self.normalized_shape, eps=self.eps)
-    else:
-        if 'memory_efficient' in inspect.getfullargspec(FastLayerNormFN.forward).args:
-            output = FastLayerNormFN.apply(input, weight, self.bias, self.eps, False)
-        else:
-            output = FastLayerNormFN.apply(input, weight, self.bias, self.eps)
-        # Apex's fast layer norm function outputs a 'view' tensor (i.e., has
-        # a populated '_base' field). This will result in schedule.py's
-        # deallocate_output_tensor() throwing an error, so a viewless tensor is
-        # created to prevent this.
-        output = make_viewless_tensor(inp = output,
-                                      requires_grad = input.requires_grad,
-                                      keep_graph = True)
+    # if self.no_persist_layer_norm:
+    #     assert fused_layer_norm_affine is not None, \
+    #         "fused_layer_norm_affine is not available, please install apex from https://github.com/NVIDIA/apex"
+    #     return fused_layer_norm_affine(input, weight, self.bias, self.normalized_shape, eps=self.eps)
+    # else:
+    #     if 'memory_efficient' in inspect.getfullargspec(FastLayerNormFN.forward).args:
+    #         output = FastLayerNormFN.apply(input, weight, self.bias, self.eps, False)
+    #     else:
+    #         output = FastLayerNormFN.apply(input, weight, self.bias, self.eps)
+    #     # Apex's fast layer norm function outputs a 'view' tensor (i.e., has
+    #     # a populated '_base' field). This will result in schedule.py's
+    #     # deallocate_output_tensor() throwing an error, so a viewless tensor is
+    #     # created to prevent this.
+    #     output = make_viewless_tensor(inp = output,
+    #                                   requires_grad = input.requires_grad,
+    #                                   keep_graph = True)
 
-        return output
+    #     return output
+    #EconoEdit : not consider now
+    return input

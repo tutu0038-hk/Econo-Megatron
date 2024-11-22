@@ -380,6 +380,8 @@ class Timers:
             barrier (bool, optional): Whether to do a global barrier before time measurments.
                                       Defaults to False.
         """
+        return
+        ## EconoEdit: no use of megatron timer
 
         output_string = self.get_all_timers_string(names, normalizer, reset, barrier)
         # If no input rank is provided, log on last rank.
@@ -397,6 +399,8 @@ class Timers:
         reset: bool = True,
         barrier: bool = False,
     ):
+        return
+        ## EconoEdit: no use of megatron timer
         """Write timers to a tensorboard writer. Note that we only report maximum time across ranks
            to tensorboard.
 

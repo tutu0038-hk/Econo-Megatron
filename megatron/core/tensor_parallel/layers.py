@@ -213,7 +213,7 @@ class VocabParallelEmbedding(torch.nn.Module):
 
         # Allocate weights and initialize.
         if config.use_cpu_initialization:
-            self.weight = Parameter(
+            self.weight = torch.nn.Parameter(
                 torch.empty(
                     self.num_embeddings_per_partition, self.embedding_dim, dtype=config.params_dtype
                 )
@@ -229,7 +229,8 @@ class VocabParallelEmbedding(torch.nn.Module):
                     params_dtype=config.params_dtype,
                 )
         else:
-            self.weight = Parameter(
+            # EconoEdit: All Parameter should be torch.nn.Parameter to be replaced
+            self.weight = torch.nn.Parameter(
                 torch.empty(
                     self.num_embeddings_per_partition,
                     self.embedding_dim,
@@ -246,14 +247,14 @@ class VocabParallelEmbedding(torch.nn.Module):
         Args:
             input_ (torch.Tensor): Input tensor.
         """
-        if self.tensor_model_parallel_size > 1:
-            # Build the mask.
-            input_mask = (input_ < self.vocab_start_index) | (input_ >= self.vocab_end_index)
-            # Mask the input.
-            masked_input = input_.clone() - self.vocab_start_index
-            masked_input[input_mask] = 0
-        else:
-            masked_input = input_
+        # if self.tensor_model_parallel_size > 1:
+        #     # Build the mask.
+        #     input_mask = (input_ < self.vocab_start_index) | (input_ >= self.vocab_end_index)
+        #     # Mask the input.
+        #     masked_input = input_.clone() - self.vocab_start_index
+        #     masked_input[input_mask] = 0
+        # else:
+        #     masked_input = input_
         # Get the embeddings.
         if self.deterministic_mode:
             output_parallel = self.weight[masked_input]
@@ -261,9 +262,10 @@ class VocabParallelEmbedding(torch.nn.Module):
             # F.embedding currently has a non-deterministic backward function
             output_parallel = F.embedding(masked_input, self.weight)
         # Mask the output embedding.
-        if self.tensor_model_parallel_size > 1:
-            output_parallel[input_mask, :] = 0.0
+        # if self.tensor_model_parallel_size > 1:
+        #     output_parallel[input_mask, :] = 0.0
 
+        # EconoEdit : ignore mask
         if self.reduce_scatter_embeddings:
             # Data format change to avoid explicit tranposes : [b s h] --> [s b h].
             output_parallel = output_parallel.transpose(0, 1).contiguous()
@@ -774,7 +776,7 @@ class ColumnParallelLinear(torch.nn.Module):
         # Initialize weight.
         if not skip_weight_param_allocation:
             if config.use_cpu_initialization:
-                self.weight = Parameter(
+                self.weight = torch.nn.Parameter(
                     torch.empty(
                         self.output_size_per_partition, self.input_size, dtype=config.params_dtype
                     )
@@ -793,7 +795,7 @@ class ColumnParallelLinear(torch.nn.Module):
                         world_size=world_size,
                     )
             else:
-                self.weight = Parameter(
+                self.weight = torch.nn.Parameter(
                     torch.empty(
                         self.output_size_per_partition,
                         self.input_size,
@@ -816,11 +818,11 @@ class ColumnParallelLinear(torch.nn.Module):
 
         if bias:
             if config.use_cpu_initialization:
-                self.bias = Parameter(
+                self.bias = torch.nn.Parameter(
                     torch.empty(self.output_size_per_partition, dtype=config.params_dtype)
                 )
             else:
-                self.bias = Parameter(
+                self.bias = torch.nn.Parameter(
                     torch.empty(
                         self.output_size_per_partition,
                         device=torch.cuda.current_device(),
@@ -1075,7 +1077,7 @@ class RowParallelLinear(torch.nn.Module):
         # we allocate the transpose.
         # Initialize weight.
         if config.use_cpu_initialization:
-            self.weight = Parameter(
+            self.weight = torch.nn.Parameter(
                 torch.empty(
                     self.output_size, self.input_size_per_partition, dtype=config.params_dtype
                 )
@@ -1095,7 +1097,7 @@ class RowParallelLinear(torch.nn.Module):
                     world_size=world_size,
                 )
         else:
-            self.weight = Parameter(
+            self.weight = torch.nn.Parameter(
                 torch.empty(
                     self.output_size,
                     self.input_size_per_partition,
@@ -1115,9 +1117,9 @@ class RowParallelLinear(torch.nn.Module):
 
         if bias:
             if config.use_cpu_initialization:
-                self.bias = Parameter(torch.empty(self.output_size, dtype=config.params_dtype))
+                self.bias = torch.nn.Parameter(torch.empty(self.output_size, dtype=config.params_dtype))
             else:
-                self.bias = Parameter(
+                self.bias = torch.nn.Parameter(
                     torch.empty(
                         self.output_size,
                         device=torch.cuda.current_device(),

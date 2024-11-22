@@ -25,6 +25,8 @@ from megatron.core.fusions.fused_bias_gelu import bias_gelu
 from megatron.core.fusions.fused_bias_swiglu import bias_swiglu
 from megatron.core.utils import get_te_version, is_te_min_version, is_torch_min_version
 
+import EconoLLM.ReplaceTensor
+
 logger = logging.getLogger(__name__)
 
 
@@ -269,6 +271,9 @@ def _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks):
         }
 
         torch.distributed.init_process_group(**init_process_group_kwargs)
+
+    EconoLLM.ReplaceTensor.init(args.rank, args.world_size)
+    # EconoEdit: Replacing pytorch API
 
     # Set the tensor model-parallel, pipeline model-parallel, and
     # data-parallel communicators.

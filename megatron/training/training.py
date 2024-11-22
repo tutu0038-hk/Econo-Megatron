@@ -279,13 +279,14 @@ def pretrain(
     # Adjust the startup time so it reflects the largest value.
     # This will be closer to what scheduler will see (outside of
     # image ... launches.
-    global _TRAIN_START_TIME
-    start_time_tensor = torch.tensor([_TRAIN_START_TIME],
-                                     dtype=torch.double,
-                                     device='cuda')
-    torch.distributed.all_reduce(start_time_tensor,
-                                 op=torch.distributed.ReduceOp.MIN)
-    _TRAIN_START_TIME = start_time_tensor.item()
+    # global _TRAIN_START_TIME
+    # start_time_tensor = torch.tensor([_TRAIN_START_TIME],
+    #                                  dtype=torch.double,
+    #                                  device='cuda')
+    # torch.distributed.all_reduce(start_time_tensor,
+    #                              op=torch.distributed.ReduceOp.MIN)
+    # _TRAIN_START_TIME = start_time_tensor.item()
+    # EconoEdit : delete timer related
 
     app_metrics = {}
     app_metrics['app_start_time'] = round(_TRAIN_START_TIME * 1000.0)
@@ -322,43 +323,50 @@ def pretrain(
     app_metrics['app_build_optimizer_finish_time'] = one_logger_utils.get_timestamp_in_ms()
     config = get_model_config(model[0])
 
-    # Data stuff.
-    app_metrics['app_build_dataiters_start_time'] = one_logger_utils.get_timestamp_in_ms()
-    timers('train/valid/test-data-iterators-setup', log_level=0).start(
-        barrier=True)
-    if args.virtual_pipeline_model_parallel_size is not None:
-        train_data_iterator = []
-        valid_data_iterator = []
-        test_data_iterator = []
-        for i in range(len(model)):
-            mpu.set_virtual_pipeline_model_parallel_rank(i)
-            iterators = build_train_valid_test_data_iterators(
-                train_valid_test_dataset_provider)
-            train_data_iterator.append(iterators[0])
-            valid_data_iterator.append(iterators[1])
-            test_data_iterator.append(iterators[2])
-    else:
-        train_data_iterator, valid_data_iterator, test_data_iterator \
-            = build_train_valid_test_data_iterators(
-                train_valid_test_dataset_provider)
-    timers('train/valid/test-data-iterators-setup').stop()
-    print_datetime('after dataloaders are built')
-    app_metrics['app_build_dataiters_finish_time'] = one_logger_utils.get_timestamp_in_ms()
+    # # Data stuff.
+    # app_metrics['app_build_dataiters_start_time'] = one_logger_utils.get_timestamp_in_ms()
+    # timers('train/valid/test-data-iterators-setup', log_level=0).start(
+    #     barrier=True)
+    # if args.virtual_pipeline_model_parallel_size is not None:
+    #     train_data_iterator = []
+    #     valid_data_iterator = []
+    #     test_data_iterator = []
+    #     for i in range(len(model)):
+    #         mpu.set_virtual_pipeline_model_parallel_rank(i)
+    #         iterators = build_train_valid_test_data_iterators(
+    #             train_valid_test_dataset_provider)
+    #         train_data_iterator.append(iterators[0])
+    #         valid_data_iterator.append(iterators[1])
+    #         test_data_iterator.append(iterators[2])
+    # else:
+    #     train_data_iterator, valid_data_iterator, test_data_iterator \
+    #         = build_train_valid_test_data_iterators(
+    #             train_valid_test_dataset_provider)
+    # timers('train/valid/test-data-iterators-setup').stop()
+    # print_datetime('after dataloaders are built')
+    # app_metrics['app_build_dataiters_finish_time'] = one_logger_utils.get_timestamp_in_ms()
 
-    # Track if training is enabled. Can only be done once args.do_train is assigned after dataloader is built.
-    one_logger_utils.track_config_flags(args.train_iters, args.skip_train, args.do_train,
-                                        args.do_valid, args.do_test, args.dataloader_type,
-                                        args.retro_project_dir, args.retro_cyclic_train_iters)
+    # # Track if training is enabled. Can only be done once args.do_train is assigned after dataloader is built.
+    # one_logger_utils.track_config_flags(args.train_iters, args.skip_train, args.do_train,
+    #                                     args.do_valid, args.do_test, args.dataloader_type,
+    #                                     args.retro_project_dir, args.retro_cyclic_train_iters)
 
-    if args.enable_ft_package and ft_integration.get_rank_monitor_client() is not None:
-        ft_integration.get_rank_monitor_client().init_workload_monitoring()
-        ft_timeouts = ft_integration.get_rank_monitor_client().timeouts
-        print_rank_0(f"Fault tolerance client initialized. Timeouts: {ft_timeouts}")
+    # if args.enable_ft_package and ft_integration.get_rank_monitor_client() is not None:
+    #     ft_integration.get_rank_monitor_client().init_workload_monitoring()
+    #     ft_timeouts = ft_integration.get_rank_monitor_client().timeouts
+    #     print_rank_0(f"Fault tolerance client initialized. Timeouts: {ft_timeouts}")
+
+    args.do_train = 1
+    args.do_valid = 0
+    args.do_test = 0
+    train_data_iterator = None
+    valid_data_iterator = None
+    # EconoEdit : adding arguments
 
     # Print setup timing.
     print_rank_0('done with setup ...')
-    timers.log(['model-and-optimizer-setup',
-                'train/valid/test-data-iterators-setup'], barrier=True)
+    # timers.log(['model-and-optimizer-setup',
+    #             'train/valid/test-data-iterators-setup'], barrier=True)
 
     one_logger = get_one_logger()
     one_logger and one_logger.log_metrics(app_metrics)
@@ -661,7 +669,8 @@ def setup_model_and_optimizer(model_provider_func,
     config.timers = timers
     optimizer = get_megatron_optimizer(config, model, no_wd_decay_cond,
                                        scale_lr_cond, lr_mult)
-    opt_param_scheduler = get_optimizer_param_scheduler(optimizer)
+    opt_param_scheduler = None #get_optimizer_param_scheduler(optimizer)
+    # EconoEdit : ~
 
     if args.moe_use_upcycling:
         torch.distributed.barrier()
@@ -765,56 +774,57 @@ def train_step(forward_step_func, data_iterator,
     if args.empty_unused_memory_level >= 1:
         torch.cuda.empty_cache()
 
-    # Vision gradients.
-    if getattr(args, 'vision_pretraining', False) and args.vision_pretraining_type == "dino":
-        unwrapped_model = unwrap_model(model[0])
-        unwrapped_model.cancel_gradients_last_layer(args.curr_iteration)
+    # EconoEdit : don't cal loss
+    # # Vision gradients.
+    # if getattr(args, 'vision_pretraining', False) and args.vision_pretraining_type == "dino":
+    #     unwrapped_model = unwrap_model(model[0])
+    #     unwrapped_model.cancel_gradients_last_layer(args.curr_iteration)
 
-    # Update parameters.
-    timers('optimizer', log_level=1).start(barrier=args.barrier_with_L1_time)
-    update_successful, grad_norm, num_zeros_in_grad = optimizer.step()
-    timers('optimizer').stop()
+    # # Update parameters.
+    # timers('optimizer', log_level=1).start(barrier=args.barrier_with_L1_time)
+    # update_successful, grad_norm, num_zeros_in_grad = optimizer.step()
+    # timers('optimizer').stop()
 
-    # Vision momentum.
-    if getattr(args, 'vision_pretraining', False) and args.vision_pretraining_type == "dino":
-        unwrapped_model = unwrap_model(model[0])
-        unwrapped_model.update_momentum(args.curr_iteration)
+    # # Vision momentum.
+    # if getattr(args, 'vision_pretraining', False) and args.vision_pretraining_type == "dino":
+    #     unwrapped_model = unwrap_model(model[0])
+    #     unwrapped_model.update_momentum(args.curr_iteration)
 
-    # Update learning rate.
-    if update_successful:
-        increment = get_num_microbatches() * \
-                    args.micro_batch_size * \
-                    args.data_parallel_size
-        opt_param_scheduler.step(increment=increment)
-        skipped_iter = 0
-    else:
-        skipped_iter = 1
+    # # Update learning rate.
+    # if update_successful:
+    #     increment = get_num_microbatches() * \
+    #                 args.micro_batch_size * \
+    #                 args.data_parallel_size
+    #     opt_param_scheduler.step(increment=increment)
+    #     skipped_iter = 0
+    # else:
+    #     skipped_iter = 1
 
-    # Empty unused memory.
-    if args.empty_unused_memory_level >= 2:
-        torch.cuda.empty_cache()
+    # # Empty unused memory.
+    # if args.empty_unused_memory_level >= 2:
+    #     torch.cuda.empty_cache()
 
-    if mpu.is_pipeline_last_stage(ignore_virtual=True):
-        # Average loss across microbatches.
-        loss_reduced = {}
-        for key in losses_reduced[0].keys():
-            numerator = 0
-            denominator = 0
-            for x in losses_reduced:
-                val = x[key]
-                # there is one dict per microbatch. in new reporting, we average
-                # over the total number of tokens across the global batch.
-                if isinstance(val, tuple) or isinstance(val, list):
-                    numerator += val[0]
-                    denominator += val[1]
-                else:
-                    # legacy behavior. we average over the number of microbatches,
-                    # and so the denominator is 1.
-                    numerator += val
-                    denominator += 1
-            loss_reduced[key] = numerator / denominator
-        return loss_reduced, skipped_iter, grad_norm, num_zeros_in_grad
-    return {}, skipped_iter, grad_norm, num_zeros_in_grad
+    # if mpu.is_pipeline_last_stage(ignore_virtual=True):
+    #     # Average loss across microbatches.
+    #     loss_reduced = {}
+    #     for key in losses_reduced[0].keys():
+    #         numerator = 0
+    #         denominator = 0
+    #         for x in losses_reduced:
+    #             val = x[key]
+    #             # there is one dict per microbatch. in new reporting, we average
+    #             # over the total number of tokens across the global batch.
+    #             if isinstance(val, tuple) or isinstance(val, list):
+    #                 numerator += val[0]
+    #                 denominator += val[1]
+    #             else:
+    #                 # legacy behavior. we average over the number of microbatches,
+    #                 # and so the denominator is 1.
+    #                 numerator += val
+    #                 denominator += 1
+    #         loss_reduced[key] = numerator / denominator
+    #     return loss_reduced, skipped_iter, grad_norm, num_zeros_in_grad
+    return {}, None, None, None
 
 
 def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_rate, iteration,
@@ -1330,24 +1340,25 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             torch.cuda.synchronize()
 
         # Logging.
-        loss_scale = optimizer.get_loss_scale().item()
-        params_norm = None
-        if args.log_params_norm:
-            params_norm = calc_params_l2_norm(model)
+        # loss_scale = optimizer.get_loss_scale().item()
+        # params_norm = None
+        # if args.log_params_norm:
+        #     params_norm = calc_params_l2_norm(model)
 
-        learning_rate = None
-        decoupled_learning_rate = None
-        for param_group in optimizer.param_groups:
-            if param_group['is_decoupled_lr']:
-                decoupled_learning_rate = param_group['lr']
-            else:
-                learning_rate = param_group['lr']
-        report_memory_flag = training_log(loss_dict, total_loss_dict,
-                                          learning_rate,
-                                          decoupled_learning_rate,
-                                          iteration, loss_scale,
-                                          report_memory_flag, skipped_iter,
-                                          grad_norm, params_norm, num_zeros_in_grad)
+        # learning_rate = None
+        # decoupled_learning_rate = None
+        # for param_group in optimizer.param_groups:
+        #     if param_group['is_decoupled_lr']:
+        #         decoupled_learning_rate = param_group['lr']
+        #     else:
+        #         learning_rate = param_group['lr']
+        # report_memory_flag = training_log(loss_dict, total_loss_dict,
+        #                                   learning_rate,
+        #                                   decoupled_learning_rate,
+        #                                   iteration, loss_scale,
+        #                                   report_memory_flag, skipped_iter,
+        #                                   grad_norm, params_norm, num_zeros_in_grad)
+        # EconoEdit : have bug on logging
 
         # StragglerDetector
         if iteration % args.log_interval == 0 and args.log_straggler:

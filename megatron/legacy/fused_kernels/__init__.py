@@ -15,7 +15,8 @@ os.environ["TORCH_CUDA_ARCH_LIST"] = ""
 
 
 def load(args):
-
+    return 
+    # EconoEdit no need for cuda compile
     # Check if cuda 11 is installed for compute capability 8.0
     cc_flag = []
     _, bare_metal_major, bare_metal_minor = _get_cuda_bare_metal_version(

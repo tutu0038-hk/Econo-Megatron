@@ -352,162 +352,164 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler, num_floati
         else:
             assert False, 'Please use local or global non-persistent checkpoints' \
                 f'(got: {args.non_persistent_ckpt_type})'
+            
+    # EconoEdit: don't save checkpoint
 
-    ckpt_format = args.ckpt_format if ckpt_type == CheckpointType.GLOBAL else 'torch'
-    print_rank_0('saving checkpoint at iteration {:7d} to {} in {} format'.format(
-        iteration, save_dir, ckpt_format))
+    # ckpt_format = args.ckpt_format if ckpt_type == CheckpointType.GLOBAL else 'torch'
+    # print_rank_0('saving checkpoint at iteration {:7d} to {} in {} format'.format(
+    #     iteration, save_dir, ckpt_format))
 
-    # Collect rng state across data parallel ranks.
-    rng_state = get_rng_state(ckpt_type != CheckpointType.LEGACY)
+    # # Collect rng state across data parallel ranks.
+    # rng_state = get_rng_state(ckpt_type != CheckpointType.LEGACY)
 
-    # Checkpoint name.
-    return_base_dir = (ckpt_type != CheckpointType.LEGACY)
-    checkpoint_name = get_checkpoint_name(save_dir, iteration, release=False, pipeline_parallel=pipeline_parallel,
-        tensor_rank=tensor_rank, pipeline_rank=pipeline_rank, expert_parallel=expert_parallel, expert_rank=expert_rank, return_base_dir=return_base_dir)
+    # # Checkpoint name.
+    # return_base_dir = (ckpt_type != CheckpointType.LEGACY)
+    # checkpoint_name = get_checkpoint_name(save_dir, iteration, release=False, pipeline_parallel=pipeline_parallel,
+    #     tensor_rank=tensor_rank, pipeline_rank=pipeline_rank, expert_parallel=expert_parallel, expert_rank=expert_rank, return_base_dir=return_base_dir)
 
-    # Save dataloader state if the dataloader supports it (currently only Megatron Energon).
-    save_dataloader_state(train_data_iterator, iteration, getattr(args, "dataloader_save", None))
+    # # Save dataloader state if the dataloader supports it (currently only Megatron Energon).
+    # save_dataloader_state(train_data_iterator, iteration, getattr(args, "dataloader_save", None))
 
-    # Save distributed optimizer's custom parameter state.
-    if (
-        args.use_distributed_optimizer
-        and not args.no_save_optim
-        and optimizer is not None
-        and ckpt_type == CheckpointType.LEGACY
-    ):
-        optim_checkpoint_name = \
-            get_distributed_optimizer_checkpoint_name(checkpoint_name)
-        ensure_directory_exists(optim_checkpoint_name)
-        optimizer.save_parameter_state(optim_checkpoint_name)
+    # # Save distributed optimizer's custom parameter state.
+    # if (
+    #     args.use_distributed_optimizer
+    #     and not args.no_save_optim
+    #     and optimizer is not None
+    #     and ckpt_type == CheckpointType.LEGACY
+    # ):
+    #     optim_checkpoint_name = \
+    #         get_distributed_optimizer_checkpoint_name(checkpoint_name)
+    #     ensure_directory_exists(optim_checkpoint_name)
+    #     optimizer.save_parameter_state(optim_checkpoint_name)
 
-    async_save_request = None
-    if args.async_save:
-        if ckpt_type == CheckpointType.LEGACY:
-            raise NotImplementedError('Async checkpoint save not implemented for legacy checkpoints')
-        elif ckpt_type == CheckpointType.GLOBAL and args.ckpt_format != 'torch_dist':
-            raise NotImplementedError(f'Async checkpoint save not implemented for {args.ckpt_format} distributed checkpoint format')
+    # async_save_request = None
+    # if args.async_save:
+    #     if ckpt_type == CheckpointType.LEGACY:
+    #         raise NotImplementedError('Async checkpoint save not implemented for legacy checkpoints')
+    #     elif ckpt_type == CheckpointType.GLOBAL and args.ckpt_format != 'torch_dist':
+    #         raise NotImplementedError(f'Async checkpoint save not implemented for {args.ckpt_format} distributed checkpoint format')
 
     rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
 
-    # Collect args, model, RNG.
-    if not torch.distributed.is_initialized() \
-            or mpu.get_data_modulo_expert_parallel_rank(with_context_parallel=True) == 0 \
-            or ckpt_type != CheckpointType.LEGACY:
-        optim_sd_kwargs = {}
-        if ckpt_type != CheckpointType.LEGACY and args.use_distributed_optimizer:
-            optim_sd_kwargs['sharding_type'] = ('fully_sharded_model_space'
-                                                if args.ckpt_fully_parallel_save
-                                                else 'dp_zero_gather_scatter')
-            print_rank_0(f'Storing distributed optimizer sharded state of type {optim_sd_kwargs["sharding_type"]}')
-        state_dict = generate_state_dict(
-            args,
-            model,
-            optimizer,
-            opt_param_scheduler,
-            rng_state,
-            ckpt_type != CheckpointType.LEGACY,
-            iteration,
-            optim_sd_kwargs=optim_sd_kwargs,
-        )
+    # # Collect args, model, RNG.
+    # if not torch.distributed.is_initialized() \
+    #         or mpu.get_data_modulo_expert_parallel_rank(with_context_parallel=True) == 0 \
+    #         or ckpt_type != CheckpointType.LEGACY:
+    #     optim_sd_kwargs = {}
+    #     if ckpt_type != CheckpointType.LEGACY and args.use_distributed_optimizer:
+    #         optim_sd_kwargs['sharding_type'] = ('fully_sharded_model_space'
+    #                                             if args.ckpt_fully_parallel_save
+    #                                             else 'dp_zero_gather_scatter')
+    #         print_rank_0(f'Storing distributed optimizer sharded state of type {optim_sd_kwargs["sharding_type"]}')
+    #     state_dict = generate_state_dict(
+    #         args,
+    #         model,
+    #         optimizer,
+    #         opt_param_scheduler,
+    #         rng_state,
+    #         ckpt_type != CheckpointType.LEGACY,
+    #         iteration,
+    #         optim_sd_kwargs=optim_sd_kwargs,
+    #     )
 
-        if args.enable_ft_package and ft_client is not None:
-            state_dict["ft_state"] = ft_client.state_dict()
-        state_dict['num_floating_point_operations_so_far'] = num_floating_point_operations_so_far
-        if ckpt_type == CheckpointType.GLOBAL:
-            if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
-                # TODO Handle non-empty directories (e.g., after a crash during saving).
-                ensure_directory_exists(checkpoint_name, check_parent=False)
-            if checkpointing_context is not None and 'save_strategy' in checkpointing_context:
-                save_strategy = checkpointing_context['save_strategy']
-                # Already saved once before - don't need to rerun sharding validation
-                validate_sharding_integrity = not args.ckpt_assume_constant_structure
-            else:
-                validate_sharding_integrity = True
-                save_strategy = get_default_save_sharded_strategy(args.ckpt_format)
-                if args.ckpt_assume_constant_structure and args.ckpt_format == 'torch_dist':
-                    save_strategy.use_cached_ckpt_structure = args.ckpt_assume_constant_structure
-                if args.ckpt_fully_parallel_save:
-                    save_strategy = FullyParallelSaveStrategyWrapper(save_strategy, mpu.get_data_parallel_group(with_context_parallel=True),
-                                                                     args.ckpt_assume_constant_structure)
-            # Store save strategy for future checkpoint saves
-            if checkpointing_context is not None:
-                checkpointing_context['save_strategy'] = save_strategy
-            end_ckpt = time()
-            logger.debug(f"rank: {rank}, takes {end_ckpt - start_ckpt} to prepare state dict for ckpt ")
-            async_save_request = dist_checkpointing.save(state_dict, checkpoint_name, save_strategy,
-                                                         async_sharded_save=args.async_save,
-                                                         validate_access_integrity=validate_sharding_integrity,
-                                                         preprocess_common_before_consistancy_check=preprocess_common_state_dict_fn)
-            # [ModelOpt]: save sharded modelopt_state
-            if has_nvidia_modelopt:
-                save_sharded_modelopt_state(model, checkpoint_name, (args.ckpt_format, 1))
-        else:
-            # [ModelOpt]: Inject modelopt_state into state_dict
-            if has_nvidia_modelopt:
-                save_modelopt_state(model, state_dict)
+    #     if args.enable_ft_package and ft_client is not None:
+    #         state_dict["ft_state"] = ft_client.state_dict()
+    #     state_dict['num_floating_point_operations_so_far'] = num_floating_point_operations_so_far
+    #     if ckpt_type == CheckpointType.GLOBAL:
+    #         if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
+    #             # TODO Handle non-empty directories (e.g., after a crash during saving).
+    #             ensure_directory_exists(checkpoint_name, check_parent=False)
+    #         if checkpointing_context is not None and 'save_strategy' in checkpointing_context:
+    #             save_strategy = checkpointing_context['save_strategy']
+    #             # Already saved once before - don't need to rerun sharding validation
+    #             validate_sharding_integrity = not args.ckpt_assume_constant_structure
+    #         else:
+    #             validate_sharding_integrity = True
+    #             save_strategy = get_default_save_sharded_strategy(args.ckpt_format)
+    #             if args.ckpt_assume_constant_structure and args.ckpt_format == 'torch_dist':
+    #                 save_strategy.use_cached_ckpt_structure = args.ckpt_assume_constant_structure
+    #             if args.ckpt_fully_parallel_save:
+    #                 save_strategy = FullyParallelSaveStrategyWrapper(save_strategy, mpu.get_data_parallel_group(with_context_parallel=True),
+    #                                                                  args.ckpt_assume_constant_structure)
+    #         # Store save strategy for future checkpoint saves
+    #         if checkpointing_context is not None:
+    #             checkpointing_context['save_strategy'] = save_strategy
+    #         end_ckpt = time()
+    #         logger.debug(f"rank: {rank}, takes {end_ckpt - start_ckpt} to prepare state dict for ckpt ")
+    #         async_save_request = dist_checkpointing.save(state_dict, checkpoint_name, save_strategy,
+    #                                                      async_sharded_save=args.async_save,
+    #                                                      validate_access_integrity=validate_sharding_integrity,
+    #                                                      preprocess_common_before_consistancy_check=preprocess_common_state_dict_fn)
+    #         # [ModelOpt]: save sharded modelopt_state
+    #         if has_nvidia_modelopt:
+    #             save_sharded_modelopt_state(model, checkpoint_name, (args.ckpt_format, 1))
+    #     else:
+    #         # [ModelOpt]: Inject modelopt_state into state_dict
+    #         if has_nvidia_modelopt:
+    #             save_modelopt_state(model, state_dict)
 
-            if ckpt_type == CheckpointType.LOCAL:
-                state_dict_for_save = prepare_state_dict_for_save(
-                    state_dict, algo=args.non_persistent_local_ckpt_algo
-                )
-                async_save_request = checkpointing_context['local_checkpoint_manager'].save(
-                    state_dict_for_save, iteration, is_async=bool(args.async_save)
-                )
-            else:
-                assert ckpt_type == CheckpointType.LEGACY
-                # Save.
-                ensure_directory_exists(checkpoint_name)
-                torch.save(state_dict, checkpoint_name)
+    #         if ckpt_type == CheckpointType.LOCAL:
+    #             state_dict_for_save = prepare_state_dict_for_save(
+    #                 state_dict, algo=args.non_persistent_local_ckpt_algo
+    #             )
+    #             async_save_request = checkpointing_context['local_checkpoint_manager'].save(
+    #                 state_dict_for_save, iteration, is_async=bool(args.async_save)
+    #             )
+    #         else:
+    #             assert ckpt_type == CheckpointType.LEGACY
+    #             # Save.
+    #             ensure_directory_exists(checkpoint_name)
+    #             torch.save(state_dict, checkpoint_name)
     start_misc = time()
-    if not args.async_save:
-        assert async_save_request is None
-        # Wait so everyone is done (necessary)
-        if torch.distributed.is_initialized():
-            torch.distributed.barrier()
+    # if not args.async_save:
+    #     assert async_save_request is None
+    #     # Wait so everyone is done (necessary)
+    #     if torch.distributed.is_initialized():
+    #         torch.distributed.barrier()
 
-    # And update the latest iteration
-    if not torch.distributed.is_initialized() \
-            or torch.distributed.get_rank() == 0:
-        tracker_filename = get_checkpoint_tracker_filename(save_dir)
+    # # And update the latest iteration
+    # if not torch.distributed.is_initialized() \
+    #         or torch.distributed.get_rank() == 0:
+    #     tracker_filename = get_checkpoint_tracker_filename(save_dir)
 
-        if ckpt_type == CheckpointType.LOCAL:
-            def iter_finalize_fn():
-                print_rank_0('  successfully saved local checkpoint from iteration {:7d}'
-                             .format(iteration))
-                if args.log_progress and args.async_save:
-                    append_to_progress_log(f'Saved async local checkpoint\tIteration: {iteration}',
-                                           barrier=False)
-        else:
-            def iter_finalize_fn():
-                with open(tracker_filename, 'w') as f:
-                    f.write(str(iteration))
-                print_rank_0('  successfully saved checkpoint from iteration {:7d} to {}'
-                             .format(iteration, args.save))
-                if args.log_progress and args.async_save:
-                    append_to_progress_log(f'Saved async checkpoint\tIteration: {iteration}',
-                                           barrier=False)
+    #     if ckpt_type == CheckpointType.LOCAL:
+    #         def iter_finalize_fn():
+    #             print_rank_0('  successfully saved local checkpoint from iteration {:7d}'
+    #                          .format(iteration))
+    #             if args.log_progress and args.async_save:
+    #                 append_to_progress_log(f'Saved async local checkpoint\tIteration: {iteration}',
+    #                                        barrier=False)
+    #     else:
+    #         def iter_finalize_fn():
+    #             with open(tracker_filename, 'w') as f:
+    #                 f.write(str(iteration))
+    #             print_rank_0('  successfully saved checkpoint from iteration {:7d} to {}'
+    #                          .format(iteration, args.save))
+    #             if args.log_progress and args.async_save:
+    #                 append_to_progress_log(f'Saved async checkpoint\tIteration: {iteration}',
+    #                                        barrier=False)
 
-        if args.async_save:
-            assert async_save_request is not None
-            async_save_request.add_finalize_fn(iter_finalize_fn)
-        else:
-            iter_finalize_fn()
+    #     if args.async_save:
+    #         assert async_save_request is not None
+    #         async_save_request.add_finalize_fn(iter_finalize_fn)
+    #     else:
+    #         iter_finalize_fn()
 
-    # Additional callback for one_logger (last rank)
-    if not torch.distributed.is_initialized() \
-       or is_last_rank():
-        def onelogger_finalize_fn():
-            on_save_checkpoint_success(productive_metrics, args.async_save)
-        if args.async_save:
-            assert async_save_request is not None
-            async_save_request.add_finalize_fn(onelogger_finalize_fn)
-        else:
-            onelogger_finalize_fn()
+    # # Additional callback for one_logger (last rank)
+    # if not torch.distributed.is_initialized() \
+    #    or is_last_rank():
+    #     def onelogger_finalize_fn():
+    #         on_save_checkpoint_success(productive_metrics, args.async_save)
+    #     if args.async_save:
+    #         assert async_save_request is not None
+    #         async_save_request.add_finalize_fn(onelogger_finalize_fn)
+    #     else:
+    #         onelogger_finalize_fn()
 
-    if args.async_save:
-        schedule_async_save(async_save_request)
-        print_rank_0('  scheduled an async checkpoint save at iteration {:7d} to {}' \
-                     .format(iteration, save_dir))
+    # if args.async_save:
+    #     schedule_async_save(async_save_request)
+    #     print_rank_0('  scheduled an async checkpoint save at iteration {:7d} to {}' \
+    #                  .format(iteration, save_dir))
 
     # Wait so everyone is done (not necessary)
     if torch.distributed.is_initialized():
