@@ -347,6 +347,8 @@ def write_args_to_tensorboard():
 
 
 def set_jit_fusion_options():
+    #EconoEdit : not support yet
+    return
     """Set PyTorch JIT layer fusion options."""
     # flags required to enable jit fusion kernels
     if is_torch_min_version("2.2.0a0"):
