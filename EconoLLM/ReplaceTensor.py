@@ -252,7 +252,7 @@ class FakeTensorWithNoData(torch.Tensor):
         for j in range(i, length):
             outDim[j] = self.fakeShape[j + cnt]
 
-        out = FakeTensorWithNoData(outDim, self.elementSize)
+        out = (outDim, self.elementSize)
         return out
     
     def __mul__(self, scalar):
@@ -541,7 +541,6 @@ class FakeTensorConverterWithNoData:
         fake_mode,
         basicDim,
         basicSize,
-        funcName,
         shape = None,
         make_constant=False,
         shape_env=None,
@@ -552,7 +551,6 @@ class FakeTensorConverterWithNoData:
         out = FakeTensorWithNoData(
                 basicDim,
                 basicSize,
-                funcName,
             )
         return out
 
@@ -574,7 +572,6 @@ def _from_tensor(
         self,
         basicDim,
         basicSize,
-        funcName = None,
         *,
         static_shapes=None,
         source: Optional[Source] = None,
@@ -592,7 +589,6 @@ def _from_tensor(
             self,
             basicDim,
             basicSize,
-            funcName, 
             shape_env=shape_env,
             source=source,
             symbolic_context=symbolic_context,
@@ -604,7 +600,7 @@ mode.fake_tensor_converter = FakeTensorConverterWithNoData()
 
 memoryPool = {}
 def FetchFakeTensor(outDim, outSize, funcName = None):
-    return mode.from_tensor(outDim, outSize, funcName)
+    return mode.from_tensor(outDim, outSize)
 
 def MakeFake(self):
     if (self.__class__.__name__ == "FakeTensorWithNoData"):
@@ -1107,13 +1103,6 @@ def _detach(self):
 def _backward(input, grad_tensors = None):
     rank = torch.distributed.get_rank()
     WriteRecord(9, pool[rank], 0, None)
-    print(input.funcName)
-    
-    if hasattr(input.funcName, "backward"):
-        output = input.funcName.backward(input)
-    else:
-        _RecordCompute(input.GradientSize)
-        output = _backward(input.prevFunc, grad_tensors)
     total = pool[rank]
     WriteRecord(9, pool[rank] + total / computationSpeed, 0, None)
     return None
