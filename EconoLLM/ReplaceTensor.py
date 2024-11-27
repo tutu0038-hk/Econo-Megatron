@@ -15,13 +15,7 @@ import torch.multiprocessing as mp
 
 from queue import PriorityQueue
 from torch.nn.parallel import DistributedDataParallel as DDP
-try:
-    not_implemented_log = torch._logging.getArtifactLogger(__name__, "not_implemented")
-except ValueError as e:
-    if "'not_implemented' not registered" in str(e):
-        import logging as not_implemented_log
-    else:
-        raise e
+
 
 # from LLMsimulator_pb2 import CommunicatorInput
 # from LLMsimulator_grpc import GreeterStub
@@ -34,42 +28,27 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING, TypeVa
 from torch.multiprocessing.reductions import StorageWeakRef
 from weakref import ReferenceType
 from torch._prims_common import ShapeType
+import EconoTorch
+import EconoNCCL
+import Recorder
 
 from torch._C._distributed_c10d import (
-    AllgatherOptions,
-    AllreduceCoalescedOptions,
-    AllreduceOptions,
-    AllToAllOptions,
-    _DistributedBackendOptions,
-    BarrierOptions,
-    BroadcastOptions,
-    GatherOptions,
-    PrefixStore,
     ProcessGroup,
     ReduceOp,
-    ReduceOptions,
-    ReduceScatterOptions,
-    ScatterOptions,
-    Store,
-    DebugLevel,
-    get_debug_level,
-    Work,
-    _register_process_group,
-    _resolve_process_group,
-    _unregister_all_process_groups,
-    _unregister_process_group,
 )
 
 global NET_INITTED
 NET_INITTED = True
 debugging = False
 gpus = 2000
-pool = [0.0] * (gpus + 1)
+computationPool = [0.0] * (gpus + 1)
 memoryUsage = [0.0] * (gpus + 1)
 Trace = [0] * gpus
 recordFile = [0] * gpus
 computationFile = [0] * gpus
 DetailRecord = [""] * gpus
+BackwardStack = [0.0] * gpus
+BackwardCommunicateStack = [[]] * gpus
 
 KB = 1024
 MB = 1024 * KB
@@ -104,24 +83,24 @@ def WriteRecord(type, flops, communicationFlops, groups):
         strrank += str(item) + " "
     rank = torch.distributed.get_rank()
     recordFile[rank].writelines([str(rank) + " " + str(type) + " " + str(flops) + " " +str(communicationFlops / communicationSpeed) + " " + str(memoryUsage[rank]) + "\n" + strrank + "\n"])
-    pool[rank] = 0
+    computationPool[rank] = 0
 
 def WriteRecordSendrecv(type, flops, communicationFlops, groups):
     strrank = str(groups)
     rank = torch.distributed.get_rank()
     recordFile[rank].writelines([str(rank) + " " + str(type) + " " + str(flops) + " " +str(communicationFlops / communicationSpeed) + " " + str(memoryUsage[rank]) + "\n" + strrank + "\n"])   
-    pool[rank] = 0
+    computationPool[rank] = 0
     
 def _RecordCompute(flops):
-    pool[torch.distributed.get_rank()] += flops / computationSpeed
+    computationPool[torch.distributed.get_rank()] += flops / computationSpeed
 
 def _RecordMemory(flops):
-    pool[torch.distributed.get_rank()] += flops / memorySpeed
+    computationPool[torch.distributed.get_rank()] += flops / memorySpeed
 
 def clearpool():
-    if pool[torch.distributed.get_rank()] > 0:
-        WriteRecord(0, pool[torch.distributed.get_rank()], 0, None)
-        pool[torch.distributed.get_rank()] = 0
+    if computationPool[torch.distributed.get_rank()] > 0:
+        WriteRecord(0, computationPool[torch.distributed.get_rank()], 0, None)
+        computationPool[torch.distributed.get_rank()] = 0
 
 def _getsize(input):
     size = 1
@@ -645,7 +624,7 @@ def _Linear(input: Tensor, weight, bias: Optional[Tensor] = None,
     output.gradientSize = input.gradientSize + weight.gradientSize + _getsize(output)
     _RecordCompute(flops)
     _RecordMemory(sizes)
-    DetailRecord[torch.distributed.get_rank()] += "Linear" + input.fakeShape + " " + weight.FakeShape + "\n"
+    #DetailRecord[torch.distributed.get_rank()] += "Linear" + input.fakeShape + " " + weight.FakeShape + "\n"
     return output
 
 def _matmul(tensorA, tensorB):
@@ -858,7 +837,7 @@ def all_reduce_md(tensor, op=ReduceOp.SUM, group=None, async_op=False):
         pg = group
     size = c10d._get_group_size(pg)
     flops *= 2 * (size - 1) / size
-    WriteRecord(1, pool[torch.distributed.get_rank()], flops, pg)
+    WriteRecord(1, computationPool[torch.distributed.get_rank()], flops, pg)
     return None
 
 def all_gather_md(tensor_list, tensor, group=None, async_op=False):
@@ -872,7 +851,7 @@ def all_gather_md(tensor_list, tensor, group=None, async_op=False):
         pg = group
     size = c10d._get_group_size(pg)
     flops *= (size - 1) / size
-    WriteRecord(2, pool[torch.distributed.get_rank()], flops, pg)
+    WriteRecord(2, computationPool[torch.distributed.get_rank()], flops, pg)
     return None
 
 def _send(tensor: torch.Tensor, dst: int, group: Optional[ProcessGroup] = None, tag: int = 0):
@@ -882,7 +861,7 @@ def _send(tensor: torch.Tensor, dst: int, group: Optional[ProcessGroup] = None, 
         pg = group
     group_dst_rank = torch.distributed.get_group_rank(pg, dst)
     flops = _getsize(tensor)
-    WriteRecordSendrecv(3, pool[torch.distributed.get_rank()], flops, group_dst_rank)
+    WriteRecordSendrecv(3, computationPool[torch.distributed.get_rank()], flops, group_dst_rank)
     return ()
 
 def _recv(tensor: torch.Tensor, src: int, group: Optional[ProcessGroup] = None, tag: int = 0):
@@ -892,7 +871,7 @@ def _recv(tensor: torch.Tensor, src: int, group: Optional[ProcessGroup] = None, 
         pg = group
     flops = _getsize(tensor)
     group_src_rank = torch.distributed.get_group_rank(pg, src)
-    WriteRecordSendrecv(4, pool[torch.distributed.get_rank()], flops, group_src_rank)
+    WriteRecordSendrecv(4, computationPool[torch.distributed.get_rank()], flops, group_src_rank)
     return ()
 
 def barrier_md(group=None, async_op=False, device_ids=None):
@@ -904,7 +883,7 @@ def barrier_md(group=None, async_op=False, device_ids=None):
         pg = c10d._get_default_group()
     else:
         pg = group
-    WriteRecord(5, pool[torch.distributed.get_rank()], 0, pg)
+    WriteRecord(5, computationPool[torch.distributed.get_rank()], 0, pg)
     return None
 
 def _all_to_all(output_tensor_list, input_tensor_list, group=None, async_op=False):
@@ -917,7 +896,7 @@ def _all_to_all(output_tensor_list, input_tensor_list, group=None, async_op=Fals
         flops +=_getsize(tensor)
     size =  c10d._get_group_size(pg)
     flops *= (size - 1) / size
-    WriteRecord(6, pool[torch.distributed.get_rank()], flops, pg)
+    WriteRecord(6, computationPool[torch.distributed.get_rank()], flops, pg)
     return None
 
 def _broadcast(tensor, src, group=None, async_op=False):
@@ -930,7 +909,7 @@ def _broadcast(tensor, src, group=None, async_op=False):
     flops = _getsize(tensor)
     size =  c10d._get_group_size(pg)
     flops *= (size - 1) / size
-    WriteRecord(7, pool[torch.distributed.get_rank()], flops, group)
+    WriteRecord(7, computationPool[torch.distributed.get_rank()], flops, group)
     return None
 
 def _reduce_scatter(output, input_list, op=ReduceOp.SUM, group=None, async_op=False):
@@ -941,7 +920,7 @@ def _reduce_scatter(output, input_list, op=ReduceOp.SUM, group=None, async_op=Fa
     flops = _getsize(input_list[0])
     size =  c10d._get_group_size(pg)
     flops *= (size - 1) / size
-    WriteRecord(8, pool[torch.distributed.get_rank()], flops, pg)
+    WriteRecord(8, computationPool[torch.distributed.get_rank()], flops, pg)
     return None
 
 def _reduce_scatter_base(output, input, op=ReduceOp.SUM, group=None, async_op=False):
@@ -952,7 +931,7 @@ def _reduce_scatter_base(output, input, op=ReduceOp.SUM, group=None, async_op=Fa
     flops = _getsize(output)
     size =  c10d._get_group_size(pg)
     flops *= (size - 1) / size
-    WriteRecord(8, pool[torch.distributed.get_rank()], flops, pg)
+    WriteRecord(8, computationPool[torch.distributed.get_rank()], flops, pg)
     return None
 
 def _all_gather_into_tensor(output_tensor, input_tensor, group=None, async_op=False):
@@ -963,7 +942,7 @@ def _all_gather_into_tensor(output_tensor, input_tensor, group=None, async_op=Fa
     flops = _getsize(input_tensor)
     size =  c10d._get_group_size(pg)
     flops *= (size - 1) / size
-    WriteRecord(2, pool[torch.distributed.get_rank()], flops, pg)
+    WriteRecord(2, computationPool[torch.distributed.get_rank()], flops, pg)
     return None
 
 def _batch_isend_irecv(p2p_op_list):
@@ -1102,16 +1081,21 @@ def _detach(self):
 
 def _backward(input, grad_tensors = None):
     rank = torch.distributed.get_rank()
-    WriteRecord(9, pool[rank], 0, None)
-    total = pool[rank]
-    WriteRecord(9, pool[rank] + total / computationSpeed, 0, None)
+    while(BackwardCommunicateStack[rank].empty() == False):
+        WriteRecord(9, BackwardStack[rank].top())
+        BackwardStack[rank].pop()
+        func, input = BackwardCommunicateStack.top()
+        func.input()
+        BackwardCommunicateStack.pop()
+        print(BackwardStack[rank].top())
     return None
 
 def _apply(self, input):
-    print("jiashu, backward detected")
+    print("Econo, backward detected")
     if hasattr(self, "backward"):
         rank = torch.distributed.get_rank()
-        DetailRecord[rank].append((self, input))
+        BackwardCommunicateStack[rank].push((self, input))
+        BackwardStack[rank].push(0)
     else:
         self.forward(input)
 
@@ -1198,128 +1182,6 @@ def init(rank0, world_size0):
     torch.autograd.backward = _backward
     torch.Tensor.retain_grad = _retain_grad
     torch.nn.Module.apply = _apply
-
-def solve():
-    print("____________solving result____________")
-    print("______________________________________")
-    gpus = torch.distributed.get_world_size()
-    status = [gpus] * gpus
-    ## status = gpus : running
-    ## +x : thread waiting for send or recv x
-    ## -x : thread is barried by x type operation
-    times = [0] * gpus
-    pretimes = [0] * gpus
-    ## running time for all gpus
-    index = [0] * gpus
-    ## processing recordID now
-    q = PriorityQueue()
-
-    for rank in range(gpus):
-        filename = os.getcwd() + "/result2/p%d.txt" % rank
-        recordFile[rank] = open(filename, "r")
-
-    # filename = os.getcwd() + "/result/Trace.txt"
-    # output = open(filename, "w")
-    def _insert(rank, index):
-        line = recordFile[rank].readline()
-        if line:
-            string = str.split(line)
-            types = int(string[1])
-            flops = float(string[2])
-            comni = float(string[3])
-            line = recordFile[rank].readline()
-            string = str.split(line)
-            ranks = []
-            for i in string:
-                ranks.append(int(i))
-            Trace[rank] = records(types, flops, comni, ranks)
-            q.put((times[rank] + Trace[rank].flops, [rank, index + 1]))
-
-    for i in range(gpus):
-        _insert(i, 0)
-
-    totalTime = 0
-    printTrace = True
-    while q.empty() == False:
-        realTime, now = q.get()
-        rank, i = now
-        Record = Trace[rank]
-        index[rank] = i
-        pretimes[rank] = realTime
-
-        if totalTime < realTime and printTrace:
-            print(totalTime)
-            print(times)
-            print(status)
-            gpuStatus = ""
-            for i in range(gpus):
-                gpuStatus += "GPU %d: " % i
-                if status[i] == gpus:
-                    gpuStatus += "Running, "
-                else:
-                    gpuStatus += "Waiting, "
-            print(gpuStatus)
-            totalTime = realTime
-            msd = input("")
-
-        if Record.type == 1 or Record.type == 2 or Record.type == 6 or Record.type == 7 or Record.type == 8: 
-            #all_gather or all_reduce or broadcast etc. all these operation should wait for the process in the group
-            status[rank] = -Record.type
-            done = True
-            for globalrank in Record.ranks:
-                if status[globalrank] != -Record.type: ##some gpu in this group is still running
-                    done = False
-                    break
-            if done: #if all groups met barrier, continue running
-                times[rank] = realTime + Record.communicationFlops
-                for globalrank in Record.ranks:
-                    status[globalrank] = gpus
-                    times[globalrank] = times[rank]
-                    _insert(globalrank, index[globalrank])
-        elif Record.type == 0:
-            times[rank] = realTime
-            _insert(rank, index[rank])
-        elif Record.type == 3 or Record.type == 4: ##send and recv
-            dstRecv = Record.ranks[0]
-            if status[dstRecv] == gpus:
-                status[rank] = dstRecv
-                times[rank] = realTime
-            elif status[dstRecv] == rank:
-                times[rank] = realTime + Record.communicationFlops
-                times[dstRecv] = times[rank]
-                status[rank] = gpus
-                status[dstRecv] = gpus
-                _insert(rank, i)
-                _insert(dstRecv, index[dstRecv])
-            else:
-                status[rank] = dstRecv
-                times[rank] += Record.flops
-        elif Record.type == 5: ##barrier
-            status[rank] = -Record.type
-            done = True
-            for globalrank in Record.ranks:
-                if status[globalrank] != -Record.type: ##some gpu in this group is still running
-                    done = False
-                    break
-            if done: #if all groups met barrier, continue running
-                times[rank] += Record.flops
-                for globalrank in Record.ranks:
-                    status[globalrank] = gpus
-                    times[globalrank] = times[rank]
-                    _insert(globalrank, index[globalrank])
-        elif Record.type == 9:
-            times[rank] = realTime
-            _insert(rank, index[rank])
-            print("Backward", rank)
-        else:
-            pass
-    print(times)
-
-def print_trace(rank):
-    return
-    cnt = 0
-    for records in Trace[rank]:
-        recordFile.writelines([str(rank), str(records.type), str(records.flops), str(records.communicationFlops), str(records.ranks)])
-        
+ 
 if __name__ == "__main__":
-    solve()
+    solver.solve()

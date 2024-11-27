@@ -62,7 +62,6 @@ DATA_ARGS="
 
 OUTPUT_ARGS="
     --log-interval 100 \
-    --tensorboard-dir ${TENSORBOARD_DIR} \
     --save-interval 500 \
     --eval-interval 1000 \
     --eval-iters 10
