@@ -676,11 +676,15 @@ def _dropout(input, p=0.5, training=True, inplace=False):
 
 def _embeddings(input, weight, padding_idx=None, max_norm=None, norm_type=2.0, scale_grad_by_freq=False, sparse=False):
     weight = MakeFake(weight)
-    dim = len(input.fakeShape)
+    if isinstance(input, int):
+        inputTensor = FetchFakeTensor([1], 4)
+    else:
+        inputTensor = input
+    dim = len(inputTensor.fakeShape)
     outDim = [0] * dim
     totalDim = 1
     for i in range(dim):
-        outDim[i] = input.fakeShape[i]
+        outDim[i] = inputTensor.fakeShape[i]
         totalDim *= outDim[i]
     len2 = len(weight.fakeShape) 
     flops = totalDim * weight.fakeShape[len2 - 2]
@@ -688,8 +692,8 @@ def _embeddings(input, weight, padding_idx=None, max_norm=None, norm_type=2.0, s
     outDim[dim - 1] = weight.fakeShape[len2 - 2]
     flops *= 2
     output = FetchFakeTensor(outDim, weight.elementSize)
-    output.gradientSize = input.gradientSize + weight.gradientSize + _getsize(output)
-    sizes = _getsize(weight) + _getsize(input) + _getsize(output)
+    output.gradientSize = inputTensor.gradientSize + weight.gradientSize + _getsize(output)
+    sizes = _getsize(weight) + _getsize(inputTensor) + _getsize(output)
     _RecordCompute(flops)
     _RecordMemory(sizes)
     return output
