@@ -4,6 +4,7 @@ from Recorder import _getsize, _RecordCompute, _RecordMemory, BackwardCommunicat
 from torch._prims_common import ShapeType
 import torch.distributed.distributed_c10d as c10d
 
+from torch import Tensor
 from typing import Tuple, Optional
 
 from torch._C._distributed_c10d import (
