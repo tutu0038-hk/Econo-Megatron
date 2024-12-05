@@ -1,5 +1,5 @@
 import torch
-from EconoLLM.ReplaceTensor import recordFile, Trace, records
+import EconoLLM.ReplaceTensor as ec
 import os
 from queue import PriorityQueue
 
@@ -20,24 +20,24 @@ def solve():
 
     for rank in range(gpus):
         filename = os.getcwd() + "/result2/p%d.txt" % rank
-        recordFile[rank] = open(filename, "r")
+        ec.recordFile[rank] = open(filename, "r")
 
-    # filename = os.getcwd() + "/result/Trace.txt"
+    # filename = os.getcwd() + "/result/ec.Trace.txt"
     # output = open(filename, "w")
     def _insert(rank, index):
-        line = recordFile[rank].readline()
+        line = ec.recordFile[rank].readline()
         if line:
             string = str.split(line)
             types = int(string[1])
             flops = float(string[2])
             comni = float(string[3])
-            line = recordFile[rank].readline()
+            line = ec.recordFile[rank].readline()
             string = str.split(line)
             ranks = []
             for i in string:
                 ranks.append(int(i))
-            Trace[rank] = records(types, flops, comni, ranks)
-            q.put((times[rank] + Trace[rank].flops, [rank, index + 1]))
+            ec.Trace[rank] = ec.records(types, flops, comni, ranks)
+            q.put((times[rank] + ec.Trace[rank].flops, [rank, index + 1]))
 
     for i in range(gpus):
         _insert(i, 0)
@@ -47,7 +47,7 @@ def solve():
     while q.empty() == False:
         realTime, now = q.get()
         rank, i = now
-        Record = Trace[rank]
+        Record = ec.Trace[rank]
         index[rank] = i
         pretimes[rank] = realTime
 
@@ -120,6 +120,6 @@ def solve():
     print(times)
 
 def print_trace(rank):
-    for records in Trace[rank]:
-        recordFile.writelines([str(rank), str(records.type), str(records.flops), str(records.communicationFlops), str(records.ranks)])
+    for records in ec.Trace[rank]:
+        ec.recordFile.writelines([str(rank), str(records.type), str(records.flops), str(records.communicationFlops), str(records.ranks)])
        
