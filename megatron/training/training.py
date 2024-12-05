@@ -1189,6 +1189,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
     # Setup some training config params
     config.grad_scale_func = None#optimizer.scale_loss
+    #EconoEdit:
     config.timers = timers
     if isinstance(model[0], DDP) and args.overlap_grad_reduce:
         assert config.no_sync_func is None, \

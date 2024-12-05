@@ -265,6 +265,9 @@ class FakeTensorWithNoData(torch.Tensor):
             "torch.compile doesn't support named tensors"
         )
 
+    def zero_(self):
+        return self
+    
     def bfloat16(self):
         return self
     
