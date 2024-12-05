@@ -84,6 +84,7 @@ class LLaMAModel(MegatronModule):
             input_ids,
             position_ids,
             attention_mask,
+            tokentype_ids=tokentype_ids,
             inference_params=inference_params)
         #Econo :
 
