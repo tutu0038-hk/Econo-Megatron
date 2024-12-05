@@ -3,34 +3,44 @@
 """Pretrain LLaMA"""
 import os
 
-import torch
 from functools import partial
+
+import torch
+import torch.nn.functional as F
+
 from megatron.training import get_args
+from megatron.training import get_tokenizer
 from megatron.training import print_rank_0
 from megatron.training import get_timers
-from megatron.training import get_tokenizer
 from megatron.core import tensor_parallel
 from megatron.core.enums import ModelType
-from megatron.legacy.data.dataset_utils import build_train_valid_test_datasets
+import megatron.legacy.model
 from megatron.core.models.LLaMA.llama_model import LLaMAModel
 from megatron.training import pretrain
-from megatron.training.utils import get_ltor_masks_and_position_ids
 from megatron.training.utils import average_losses_across_data_parallel_group
+from megatron.training.arguments import core_transformer_config_from_args
+from megatron.core.transformer.spec_utils import import_module
+from megatron.core.models.bert.bert_layer_specs import bert_layer_with_transformer_engine_spec, bert_layer_local_spec
+from megatron.core.datasets.utils import get_blend_from_list
+from megatron.core import mpu, tensor_parallel
+
 import EconoLLM.ReplaceTensor 
 
 
 def model_provider(pre_process=True, post_process=True):
     """Build the model."""
-
-    print_rank_0('building LLaMA model ...')
+    print_rank_0('building BERT model ...')
+    args = get_args()
+    config = core_transformer_config_from_args(args)
+    num_tokentypes = 2 if args.bert_binary_head else 0
     model = LLaMAModel(
-        num_tokentypes=0,
-        parallel_output=True,
-        pre_process=pre_process,
-        post_process=post_process
-    )
-    return model
+            config=config,
+            num_tokentypes=num_tokentypes,
+            parallel_output=True,
+            pre_process=pre_process,
+            post_process=post_process)
 
+    return model
 
 def get_batch(data_iterator):
     """Generate a batch"""
@@ -41,27 +51,14 @@ def get_batch(data_iterator):
     keys = ['text']
     datatype = torch.int64
 
-    # # Broadcast data.
-    # if data_iterator is not None:
-    #     data = next(data_iterator)
-    # else:
-    #     data = None
     dim = [args.global_batch_size, args.seq_length, args.hidden_size]
     tokens_ = EconoLLM.ReplaceTensor.FetchFakeTensor(dim, datatype.itemsize)
-    # data_b = tensor_parallel.broadcast_data(keys, data, datatype)
-    
+
     # Unpack.
     labels = tokens_[:, 1:].contiguous()
     tokens = tokens_[:, :-1].contiguous()
     tokens = EconoLLM.ReplaceTensor.FetchFakeTensor(dim, datatype.itemsize)
-    #print("tokens= ", tokens.fakeShape)
-    # # Get the masks and postition ids.
-    # attention_mask, loss_mask, position_ids = get_ltor_masks_and_position_ids(
-    #     tokens,
-    #     tokenizer.eod,
-    #     args.reset_position_ids,
-    #     args.reset_attention_mask,
-    #     args.eod_mask_loss)
+    #fixed data size for testing
 
     return tokens, labels, None, None, None
 
