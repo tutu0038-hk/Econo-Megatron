@@ -963,7 +963,7 @@ def _all_gather_into_tensor(output_tensor, input_tensor, group=None, async_op=Fa
 def _batch_isend_irecv(p2p_op_list):
     for p2p_op in p2p_op_list:
         p2p_op.op(p2p_op.tensor, p2p_op.peer, p2p_op.group, p2p_op.tag)
-    return ()
+    return []
 
 def _todevice(self, *args, **kwargs):
     current_device = self.device
