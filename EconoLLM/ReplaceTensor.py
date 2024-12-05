@@ -1124,12 +1124,14 @@ def _apply(self, *args):
         BackwardCommunicateStack[rank].append((self, args))
         BackwardStack[rank].append(0)
         print("Econo, backward detected")
+        print(self.__name__)
     else:
         print("Econo, backward not detected")
     if hasattr(self, "forward"):
         self.forward(*args)
-        print("Econo, forward not detected")
+        print("Econo, forward detected")
     else:
+        print(self.__name__)
         assert 0
 
 def _synchronize():
