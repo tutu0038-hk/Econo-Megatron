@@ -60,10 +60,10 @@ custom_bwd = torch.cuda.amp.custom_bwd
 
 if is_torch_min_version("1.13.0"):
     torch.distributed.all_gather_into_tensor = torch.distributed.all_gather_into_tensor
-    dist_reduce_scatter_func = torch.distributed.reduce_scatter_tensor
+    torch.distributed._reduce_scatter_base = torch.distributed.reduce_scatter_tensor
 else:
     torch.distributed.all_gather_into_tensor = torch.distributed._all_gather_base
-    dist_reduce_scatter_func = torch.distributed._reduce_scatter_base
+    torch.distributed._reduce_scatter_base = torch.distributed._reduce_scatter_base
 
 
 def param_is_not_tensor_parallel_duplicate(param):
@@ -503,7 +503,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
                 dim_size, dtype=input.dtype, device=torch.cuda.current_device(), requires_grad=False
             )
             # reduce_scatter
-            handle = dist_reduce_scatter_func(
+            handle = torch.distributed._reduce_scatter_base(
                 sub_grad_input, grad_input, group=get_tensor_model_parallel_group(), async_op=True
             )
             # Here we rely on CUDA_DEVICE_MAX_CONNECTIONS=1 to ensure that the

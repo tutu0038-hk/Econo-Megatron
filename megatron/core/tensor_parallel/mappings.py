@@ -16,10 +16,10 @@ from .utils import split_tensor_along_last_dim
 
 if is_torch_min_version("1.13.0"):
     torch.distributed.all_gather_into_tensor = torch.distributed.all_gather_into_tensor
-    dist_reduce_scatter_func = torch.distributed.reduce_scatter_tensor
+    torch.distributed._reduce_scatter_base = torch.distributed.reduce_scatter_tensor
 else:
     torch.distributed.all_gather_into_tensor = torch.distributed._all_gather_base
-    dist_reduce_scatter_func = torch.distributed._reduce_scatter_base
+    torch.distributed._reduce_scatter_base = torch.distributed._reduce_scatter_base
 
 
 def _reduce(input_):
@@ -171,7 +171,7 @@ def _reduce_scatter_along_first_dim(input_, input_split_sizes=None):
         dim_size[0] = dim_size[0] // world_size
 
         output = torch.empty(dim_size, dtype=input_.dtype, device=torch.cuda.current_device())
-        dist_reduce_scatter_func(
+        torch.distributed._reduce_scatter_base(
             output, input_.contiguous(), group=get_tensor_model_parallel_group()
         )
     else:
@@ -220,7 +220,7 @@ def _reduce_scatter_along_first_dim_moe(input_, use_global_buffer=False):
         output = get_global_memory_buffer().get_tensor(dim_size, input_.dtype, "mpu")
     else:
         output = torch.empty(dim_size, dtype=input_.dtype, device=torch.cuda.current_device())
-    dist_reduce_scatter_func(output, input_.contiguous(), group=group)
+    torch.distributed._reduce_scatter_base(output, input_.contiguous(), group=group)
     return output
 
 

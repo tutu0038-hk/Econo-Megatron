@@ -1199,6 +1199,7 @@ def init(rank0, world_size0):
     torch.distributed._all_gather_base = _all_gather_into_tensor
     torch.distributed.all_gather_into_tensor = _all_gather_into_tensor
     torch.distributed._reduce_scatter_base = _reduce_scatter_base
+    torch.distributed.reduce_scatter_tensor = _reduce_scatter_base
     torch.distributed.batch_isend_irecv = _batch_isend_irecv
     torch.distributed.irecv = _recv
     torch.distributed.isend = _send

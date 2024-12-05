@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 if is_torch_min_version("1.13.0"):
     torch.distributed.all_gather_into_tensor = torch.distributed.all_gather_into_tensor
-    dist_reduce_scatter_func = torch.distributed.reduce_scatter_tensor
+    torch.distributed._reduce_scatter_base = torch.distributed.reduce_scatter_tensor
 else:
     torch.distributed.all_gather_into_tensor = torch.distributed._all_gather_base
-    dist_reduce_scatter_func = torch.distributed._reduce_scatter_base
+    torch.distributed._reduce_scatter_base = torch.distributed._reduce_scatter_base
 
 
 class BufferType(Enum):
@@ -263,7 +263,7 @@ class _ParamAndGradBucketGroup:
                     local_data_view = shard_buffer(bucket.grad_data, self.data_parallel_world_size)[
                         self.data_parallel_rank
                     ]
-                    dist_reduce_scatter_func(
+                    torch.distributed._reduce_scatter_base(
                         local_data_view,
                         bucket.grad_data,
                         op=reduce_op,
