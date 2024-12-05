@@ -1149,6 +1149,7 @@ def init(rank0, world_size0):
     torch.nn.functional.dropout = _dropout
     torch.bmm = _matmul
     torch.rand = _empty
+    torch.zeros =_empty
 
     #torch.set_default_tensor_type = _set_default_type
     #torch.distributed.get_world_size =  _world_size
