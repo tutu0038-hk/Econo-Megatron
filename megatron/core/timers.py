@@ -11,9 +11,9 @@ import torch
 from megatron.core.utils import is_torch_min_version
 
 if is_torch_min_version("1.13.0"):
-    dist_all_gather_func = torch.distributed.all_gather_into_tensor
+    torch.distributed.all_gather_into_tensor = torch.distributed.all_gather_into_tensor
 else:
-    dist_all_gather_func = torch.distributed._all_gather_base
+    torch.distributed.all_gather_into_tensor = torch.distributed._all_gather_base
 
 
 class TimerBase(ABC):
@@ -253,7 +253,7 @@ class Timers:
                 rank_name_to_time[rank, i] = self._timers[name].elapsed(reset=reset)
 
         # See the note above for why we are not using gather.
-        dist_all_gather_func(rank_name_to_time.view(-1), rank_name_to_time[rank, :].view(-1))
+        torch.distributed.all_gather_into_tensor(rank_name_to_time.view(-1), rank_name_to_time[rank, :].view(-1))
 
         return rank_name_to_time
 

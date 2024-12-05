@@ -31,6 +31,7 @@ from torch._prims_common import ShapeType
 # import EconoLLM.EconoTorch
 # import EconoLLM.EconoNCCL
 # import EconoLLM.Recorder
+from EconoLLM.solver import solve
 
 from torch._C._distributed_c10d import (
     ProcessGroup,
@@ -55,7 +56,7 @@ Trace = [0] * gpus
 recordFile = [0] * gpus
 computationFile = [0] * gpus
 DetailRecord = [""] * gpus
-BackwardStack = [0.0] * gpus
+BackwardStack = [[] for _ in range(gpus)]
 BackwardCommunicateStack = [[] for _ in range(gpus)]
 
 KB = 1024
@@ -101,7 +102,7 @@ def WriteRecordSendrecv(type, flops, communicationFlops, groups):
     
 def _RecordCompute(flops):
     computationPool[torch.distributed.get_rank()] += flops / computationSpeed
-    BackwardStack[torch.distributed.get_rank()] += flops / computationSpeed
+    BackwardStack[torch.distributed.get_rank()][-1] += flops / computationSpeed
 
 def _RecordMemory(flops):
     computationPool[torch.distributed.get_rank()] += flops / memorySpeed
@@ -1109,11 +1110,11 @@ def _detach(self):
 def _backward(input, grad_tensors = None):
     rank = torch.distributed.get_rank()
     while(BackwardCommunicateStack[rank].empty() == False):
-        WriteRecord(9, BackwardStack[rank].top())
+        WriteRecord(9, BackwardStack[rank][-1])
         BackwardStack[rank].pop()
-        func, input = BackwardCommunicateStack.top()
+        func, input = BackwardCommunicateStack[rank][-1]
         func.backward(input)
-        BackwardCommunicateStack.pop()
+        BackwardCommunicateStack[rank].pop()
         print(BackwardStack[rank].top())
     return None
 
@@ -1122,7 +1123,7 @@ def _apply(self, *args):
     if hasattr(self, "backward"):
         rank = torch.distributed.get_rank()
         BackwardCommunicateStack[rank].append((self, args))
-        BackwardStack[rank].push(0)
+        BackwardStack[rank].append(0)
     else:
         self.forward(args)
 
@@ -1141,6 +1142,7 @@ def init(rank0, world_size0):
 
     filename = os.getcwd() + "/result/p%d.txt" % rank0
     recordFile[rank0] = open(filename, "w")
+    BackwardStack[rank0].append(0)
 
     print("rank = ", rank0, "world_size = ", world_size0)
     nn.functional.linear = _Linear
@@ -1217,4 +1219,4 @@ def init(rank0, world_size0):
     torch.autograd.Function.apply = _apply
  
 if __name__ == "__main__":
-    solver.solve()
+    solve()
