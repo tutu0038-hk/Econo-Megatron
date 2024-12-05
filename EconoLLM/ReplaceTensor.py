@@ -56,7 +56,7 @@ recordFile = [0] * gpus
 computationFile = [0] * gpus
 DetailRecord = [""] * gpus
 BackwardStack = [0.0] * gpus
-BackwardCommunicateStack = [[]] * gpus
+BackwardCommunicateStack = [[] for _ in range(gpus)]
 
 KB = 1024
 MB = 1024 * KB
