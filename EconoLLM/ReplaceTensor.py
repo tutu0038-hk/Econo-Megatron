@@ -700,7 +700,7 @@ def _view_as(self, other):
 #def _set_default_type(type):
 #    default_type = type
 
-def _reshape(self, *fakeShape: ShapeType):
+def _reshape(self, *fakeShape):
     if (self.__class__.__name__ == "FakeTensorWithNoData"):
         allShapes = []
         for i in fakeShape:
@@ -735,7 +735,7 @@ def _reshape(self, *fakeShape: ShapeType):
     else:
         return backupReshape(self, fakeShape)
 
-def _view(self, *fakeShape: ShapeType):
+def _view(self, *fakeShape):
     if (self.__class__.__name__ == "FakeTensorWithNoData"):
         allShapes = []
         for i in fakeShape:
@@ -772,7 +772,7 @@ def _view(self, *fakeShape: ShapeType):
     else:
         return backupView(self, fakeShape)
 
-def _expand(self, *fakeShape: ShapeType):
+def _expand(self, *fakeShape):
     allShapes = []
     #print("_expand", self.fakeShape)
     for i in fakeShape:
