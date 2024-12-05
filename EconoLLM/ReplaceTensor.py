@@ -707,9 +707,7 @@ def _view_as_complex(self):
     return self 
 
 def _view_as(self, other):
-    newShape = []
-    for shape in other.fakeShape:
-        newShape.append(shape)
+    newShape = other.fakeShape[:]
     self.fakeShape = newShape
     return self
 

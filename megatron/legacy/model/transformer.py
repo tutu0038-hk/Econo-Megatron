@@ -687,12 +687,12 @@ class ParallelAttention(MegatronModule):
             query_layer, key_layer, value_layer = tensor_parallel.split_tensor_along_last_dim(mixed_x_layer, 3)
 
             # [sq, b, hp] --> [sq, b, ng, (np/ng + 2) * hn]
-            new_tensor_shape = mixed_x_layer.size()[:-1] + \
+            new_tensor_shape = query_layer.size()[:-1] + \
                 (self.num_attention_heads_per_partition, self.hidden_size_per_attention_head)
             
             query_layer = query_layer.view(new_tensor_shape)
-            key_layer = key_layer.view(key_layer)
-            value_layer = value_layer.view(value_layer)
+            key_layer = key_layer.view(new_tensor_shape)
+            value_layer = value_layer.view(new_tensor_shape)
             #EconoEdit : back
             #mixed_x_layer = mixed_x_layer.view(*new_tensor_shape)
 
