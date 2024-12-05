@@ -1116,14 +1116,14 @@ def _backward(input, grad_tensors = None):
         print(BackwardStack[rank].top())
     return None
 
-def _apply(self, input):
+def _apply(self, *args):
     print("Econo, backward detected")
     if hasattr(self, "backward"):
         rank = torch.distributed.get_rank()
-        BackwardCommunicateStack[rank].push((self, input))
+        BackwardCommunicateStack[rank].push((self, args))
         BackwardStack[rank].push(0)
     else:
-        self.forward(input)
+        self.forward(args)
 
 def _synchronize():
     pass
