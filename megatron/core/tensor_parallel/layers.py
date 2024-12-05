@@ -50,12 +50,12 @@ _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS = {
 }
 
 
-if is_torch_min_version("2.4.0a0"):
-    custom_fwd = partial(torch.amp.custom_fwd, device_type="cuda")
-    custom_bwd = partial(torch.amp.custom_bwd, device_type="cuda")
-else:
-    custom_fwd = torch.cuda.amp.custom_fwd
-    custom_bwd = torch.cuda.amp.custom_bwd
+# if is_torch_min_version("2.4.0a0"):
+#     custom_fwd = partial(torch.amp.custom_fwd, device_type="cuda")
+#     custom_bwd = partial(torch.amp.custom_bwd, device_type="cuda")
+# else:
+custom_fwd = torch.cuda.amp.custom_fwd
+custom_bwd = torch.cuda.amp.custom_bwd
 
 
 if is_torch_min_version("1.13.0"):
