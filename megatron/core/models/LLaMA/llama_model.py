@@ -71,9 +71,6 @@ class LLaMAModel(MegatronModule):
             pre_process=self.pre_process,
             post_process=self.post_process)
 
-        if not args.untie_embeddings_and_output_weights:
-            self.initialize_word_embeddings()
-        
         if self.post_process:
             self.lm_head = torch.nn.Linear(args.hidden_size, args.padded_vocab_size, bias=False)
 
