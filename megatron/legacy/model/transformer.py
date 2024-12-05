@@ -692,25 +692,28 @@ class ParallelAttention(MegatronModule):
                     * self.hidden_size_per_attention_head
                 ),
             )
-            mixed_x_layer = mixed_x_layer.view(*new_tensor_shape)
+            query_layer = query_layer.view(new_tensor_shape)
+            key_layer = key_layer.view(key_layer)
+            value_layer = value_layer.view(value_layer)
+            #mixed_x_layer = mixed_x_layer.view(*new_tensor_shape)
 
-            # [sq, b, ng, (np/ng + 2) * hn] --> [sq, b, ng, np/ng * hn], [sq, b, ng, hn], [sq, b, ng, hn]
-            (query_layer,
-            key_layer,
-            value_layer) = torch.split(
-                mixed_x_layer,
-                [
-                    (
-                        self.num_attention_heads_per_partition // self.num_query_groups_per_partition
-                        * self.hidden_size_per_attention_head
-                    ),
-                    self.hidden_size_per_attention_head,
-                    self.hidden_size_per_attention_head
-                ],
-                dim=3)
+            # # [sq, b, ng, (np/ng + 2) * hn] --> [sq, b, ng, np/ng * hn], [sq, b, ng, hn], [sq, b, ng, hn]
+            # (query_layer,
+            # key_layer,
+            # value_layer) = torch.split(
+            #     mixed_x_layer,
+            #     [
+            #         (
+            #             self.num_attention_heads_per_partition // self.num_query_groups_per_partition
+            #             * self.hidden_size_per_attention_head
+            #         ),
+            #         self.hidden_size_per_attention_head,
+            #         self.hidden_size_per_attention_head
+            #     ],
+            #     dim=3)
 
-            # [sq, b, ng, np/ng * hn] -> [sq, b, np, hn] -
-            query_layer = query_layer.view(query_layer.size(0), query_layer.size(1), -1, self.hidden_size_per_attention_head)
+            # # [sq, b, ng, np/ng * hn] -> [sq, b, np, hn] -
+            # query_layer = query_layer.view(query_layer.size(0), query_layer.size(1), -1, self.hidden_size_per_attention_head)
         else:
             # Attention heads [sk, b, h] --> [sk, b, (np * 2 * hn)]
             mixed_kv_layer, _ = self.key_value(encoder_output)
