@@ -1085,6 +1085,15 @@ def _Parameter(self):
 def _normal(self, mean, std, generator=None):
     return self
 
+def _rsqrt(self):
+    return self
+
+def _pow(self):
+    return self
+
+def _mean(self, input, keepdim = True):
+    return self
+
 from torch.nn.parameter import Parameter
 
 def _clone(self):
@@ -1166,6 +1175,9 @@ def init(rank0, world_size0):
     torch.bmm = _matmul
     torch.rand = _empty
     torch.zeros =_empty
+    torch.rsqrt = _rsqrt
+    torch.Tensor.pow = _pow
+    torch.Tensor.mean = _mean
 
     #torch.set_default_tensor_type = _set_default_type
     #torch.distributed.get_world_size =  _world_size
