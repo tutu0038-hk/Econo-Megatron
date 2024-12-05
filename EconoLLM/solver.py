@@ -1,5 +1,5 @@
 import torch
-from Recorder import recordFile, Trace, records
+from EconoLLM.ReplaceTensor import recordFile, Trace, records
 import os
 from queue import PriorityQueue
 
