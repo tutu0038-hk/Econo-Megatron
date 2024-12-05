@@ -101,6 +101,7 @@ def WriteRecordSendrecv(type, flops, communicationFlops, groups):
     
 def _RecordCompute(flops):
     computationPool[torch.distributed.get_rank()] += flops / computationSpeed
+    BackwardStack[torch.distributed.get_rank()] += flops / computationSpeed
 
 def _RecordMemory(flops):
     computationPool[torch.distributed.get_rank()] += flops / memorySpeed
@@ -1111,7 +1112,7 @@ def _backward(input, grad_tensors = None):
         WriteRecord(9, BackwardStack[rank].top())
         BackwardStack[rank].pop()
         func, input = BackwardCommunicateStack.top()
-        func.input()
+        func.backward(input)
         BackwardCommunicateStack.pop()
         print(BackwardStack[rank].top())
     return None
@@ -1120,7 +1121,7 @@ def _apply(self, *args):
     print("Econo, backward detected")
     if hasattr(self, "backward"):
         rank = torch.distributed.get_rank()
-        BackwardCommunicateStack[rank].push((self, args))
+        BackwardCommunicateStack[rank].append((self, args))
         BackwardStack[rank].push(0)
     else:
         self.forward(args)
