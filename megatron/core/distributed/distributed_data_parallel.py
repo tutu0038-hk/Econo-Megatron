@@ -253,15 +253,16 @@ class DistributedDataParallel(_BaseDataParallel):
         # Register backward hook.
         # Accumulation function for the gradients need to be stored so they
         # don't go out of scope.
-        self.grad_accs = []
-        for param in self.module.parameters():
-            if param.requires_grad:
-                # Expand so we get access to grad_fn.
-                param_tmp = param.expand_as(param)
-                # Get the gradient accumulator function.
-                grad_acc = param_tmp.grad_fn.next_functions[0][0]
-                grad_acc.register_hook(self._make_backward_post_hook(param))
-                self.grad_accs.append(grad_acc)
+        # self.grad_accs = []
+        # for param in self.module.parameters():
+        #     if param.requires_grad:
+        #         # Expand so we get access to grad_fn.
+        #         param_tmp = param.expand_as(param)
+        #         # Get the gradient accumulator function.
+        #         grad_acc = param_tmp.grad_fn.next_functions[0][0]
+        #         grad_acc.register_hook(self._make_backward_post_hook(param))
+        #         self.grad_accs.append(grad_acc)
+        #EconoEdit : grad_hooks are not needed in Econo
 
         self.use_forward_hook = (
             self.ddp_config.use_distributed_optimizer and self.ddp_config.overlap_param_gather
