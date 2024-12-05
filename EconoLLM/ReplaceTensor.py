@@ -283,7 +283,7 @@ class FakeTensorWithNoData(torch.Tensor):
         else:
             return tuple(self.fakeShape)
 
-    def expend_as(self, Tensor2):
+    def expand_as(self, Tensor2):
         Newdim = Tensor2.fakeShape[:]
         output = FetchFakeTensor(Newdim, self.elementSize)
         return output
