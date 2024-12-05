@@ -37,6 +37,14 @@ from torch._C._distributed_c10d import (
     ReduceOp,
 )
 
+try:
+    not_implemented_log = torch._logging.getArtifactLogger(__name__, "not_implemented")
+except ValueError as e:
+    if "'not_implemented' not registered" in str(e):
+        import logging as not_implemented_log
+    else:
+        raise e
+
 global NET_INITTED
 NET_INITTED = True
 debugging = False
@@ -274,6 +282,11 @@ class FakeTensorWithNoData(torch.Tensor):
             return self.fakeShape[dim]
         else:
             return tuple(self.fakeShape)
+
+    def expend_as(self, Tensor2):
+        Newdim = Tensor2.fakeShape[:]
+        output = FetchFakeTensor(Newdim, self.elementSize)
+        return output
 
     def fakeShape(self):
         return self.fakeShape
