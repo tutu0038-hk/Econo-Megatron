@@ -231,7 +231,7 @@ class FakeTensorWithNoData(torch.Tensor):
         for j in range(i, length):
             outDim[j] = self.fakeShape[j + cnt]
 
-        out = (outDim, self.elementSize)
+        out = FetchFakeTensor(outDim, self.elementSize)
         return out
     
     def __mul__(self, scalar):
