@@ -285,7 +285,7 @@ class FakeTensorWithNoData(torch.Tensor):
         return output
         
     @staticmethod
-    def __new__(cls, dim, size, func, allocateNewTensor = False, prevfunc = None):
+    def __new__(cls, dim, size, allocateNewTensor = False, prevfunc = None):
         self = super().__new__(cls)
         if type(dim) is list:
             self.fakeShape = dim
@@ -296,7 +296,6 @@ class FakeTensorWithNoData(torch.Tensor):
         self.allocateNewTensor = allocateNewTensor
         if allocateNewTensor:
             memoryUsage[torch.distributed.get_rank()] += _getsize(self.fakeShape)
-        self.nowFunc = func
         self.prevFunc = prevfunc
         return self
 
