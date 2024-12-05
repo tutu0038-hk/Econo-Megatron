@@ -1213,7 +1213,7 @@ def init(rank0, world_size0):
     ##
     torch.autograd.backward = _backward
     torch.Tensor.retain_grad = _retain_grad
-    torch.nn.Module.apply = _apply
+    torch.autograd.Function.apply = _apply
  
 if __name__ == "__main__":
     solver.solve()
