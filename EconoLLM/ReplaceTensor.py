@@ -16,7 +16,6 @@ import torch.multiprocessing as mp
 from queue import PriorityQueue
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-
 # from LLMsimulator_pb2 import CommunicatorInput
 # from LLMsimulator_grpc import GreeterStub
 # import asyncio
@@ -32,6 +31,12 @@ from torch._prims_common import ShapeType
 # import EconoLLM.EconoNCCL
 # import EconoLLM.Recorder
 from EconoLLM.solver import solve
+
+import torch._functorch as _functorch
+import torch.utils.hooks as hooks
+from torch._C import _functions
+from torch._functorch.autograd_function import custom_function_call
+
 
 from torch._C._distributed_c10d import (
     ProcessGroup,
@@ -1118,22 +1123,42 @@ def _backward(input, grad_tensors = None):
         print(BackwardStack[rank].top())
     return None
 
-def _apply(self, *args):
-    if hasattr(self, "backward"):
+def _apply(cls, *args, **kwargs):
+    # def bind_default_args(func, *args, **kwargs):
+    #     signature = inspect.signature(func)
+    #     bound_args = signature.bind(*args, **kwargs)
+    #     bound_args.apply_defaults()
+
+    #     return bound_args.args
+
+    # is_setup_ctx_defined = cls.setup_context != _SingleLevelFunction.setup_context
+    # if is_setup_ctx_defined:
+    #     args = bind_default_args(cls.forward, *args, **kwargs)
+
+    # if not torch._C._are_functorch_transforms_active():
+    #     # See NOTE: [functorch vjp and autograd interaction]
+    #     args = _functorch.utils.unwrap_dead_wrappers(args)
+    #     return super().apply(*args, **kwargs)  # type: ignore[misc]
+
+    # if not is_setup_ctx_defined:
+    #     raise RuntimeError(
+    #         "In order to use an autograd.Function with functorch transforms "
+    #         "(vmap, grad, jvp, jacrev, ...), it must override the setup_context "
+    #         "staticmethod. For more details, please see "
+    #         "https://pytorch.org/docs/main/notes/extending.func.html"
+    #     )
+    if hasattr(cls, "backward"):
         rank = torch.distributed.get_rank()
-        BackwardCommunicateStack[rank].append((self, args))
+        BackwardCommunicateStack[rank].append((cls, args))
         BackwardStack[rank].append(0)
         print("Econo, backward detected")
-        print(self.__class__.__name__)
+        print(cls.__class__.__name__)
         print(*args)
     else:
         print("Econo, backward not detected")
-    if hasattr(self, "forward"):
-        self.forward(*args)
-        print("Econo, forward detected")
-    else:
-        print(self.__class__.__name__)
-        assert 0
+    
+    return custom_function_call(cls, *args, **kwargs)
+    
 
 def _synchronize():
     pass
