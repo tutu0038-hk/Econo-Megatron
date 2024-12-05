@@ -1088,7 +1088,7 @@ def _normal(self, mean, std, generator=None):
 def _rsqrt(self):
     return self
 
-def _pow(self):
+def _pow(self, x):
     return self
 
 def _mean(self, input, keepdim = True):
