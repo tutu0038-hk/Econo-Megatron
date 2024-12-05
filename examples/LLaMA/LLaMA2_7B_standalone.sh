@@ -5,9 +5,9 @@ DATASET_2="./"
 DATASET_3="./"
 DATASET="0.2 ${DATASET_1} 0.3 ${DATASET_2} 0.5 ${DATASET_3}"
 
-TP_SIZE=1
-PP_SIZE=1
-WORLD_SIZE=1
+TP_SIZE=2
+PP_SIZE=2
+WORLD_SIZE=8
 MICRO_BATCH_SIZE=8
 # The int is the number of micro steps of gradient accumulation
 GLOBAL_BATCH_SIZE=$((($WORLD_SIZE * $MICRO_BATCH_SIZE) / ($TP_SIZE * $PP_SIZE) * 8))
