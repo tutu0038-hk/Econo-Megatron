@@ -254,7 +254,7 @@ class VocabParallelEmbedding(torch.nn.Module):
         #     masked_input = input_.clone() - self.vocab_start_index
         #     masked_input[input_mask] = 0
         # else:
-        #     masked_input = input_
+        masked_input = input_
         # Get the embeddings.
         if self.deterministic_mode:
             output_parallel = self.weight[masked_input]
