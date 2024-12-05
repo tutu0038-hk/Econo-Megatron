@@ -11,7 +11,7 @@ def get_language_model_config(config):
         config.add_bias_linear = False
         config.bias_activation_fusion = False
         config.gated_linear_unit = True
-        config.apply_query_key_layer_scaling = True
+        config.apply_query_key_layer_scaling = False
         config.layernorm_zero_centered_gamma = True
         config.bias_dropout_fusion = False
         config.rotary_percent = 0.5
@@ -21,7 +21,7 @@ def get_language_model_config(config):
         config.add_bias_linear = False
         config.bias_activation_fusion = False
         config.gated_linear_unit = False
-        config.apply_query_key_layer_scaling = True
+        config.apply_query_key_layer_scaling = False
         config.layernorm_zero_centered_gamma = True
         config.bias_dropout_fusion = False
         config.rotary_percent = 0.5
