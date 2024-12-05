@@ -31,6 +31,7 @@ def model_provider(pre_process=True, post_process=True):
     """Build the model."""
     print_rank_0('building BERT model ...')
     args = get_args()
+    args.transformer_impl = "local"
     config = core_transformer_config_from_args(args)
     num_tokentypes = 2 if args.bert_binary_head else 0
     model = LLaMAModel(
