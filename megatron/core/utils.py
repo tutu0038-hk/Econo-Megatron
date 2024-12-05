@@ -502,9 +502,9 @@ def prepare_input_tensors_for_wgrad_compute(grad_output, all_gathered_input):
 
 
 if is_torch_min_version("1.13.0"):
-    dist_all_gather_func = torch.distributed.all_gather_into_tensor
+    torch.distributed.all_gather_into_tensor = torch.distributed.all_gather_into_tensor
 else:
-    dist_all_gather_func = torch.distributed._all_gather_base
+    torch.distributed.all_gather_into_tensor = torch.distributed._all_gather_base
 
 
 def drain_embedding_wgrad_compute(config, embedding_activation_buffer, grad_output_buffer, weight):
@@ -535,7 +535,7 @@ def drain_embedding_wgrad_compute(config, embedding_activation_buffer, grad_outp
     all_gathered_input = [None, None]
     if config.sequence_parallel:
         all_gather_buffer = get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu_0")
-        handle = dist_all_gather_func(
+        handle = torch.distributed.all_gather_into_tensor(
             all_gather_buffer, input, group=get_tensor_model_parallel_group(), async_op=False
         )
 
@@ -573,7 +573,7 @@ def drain_embedding_wgrad_compute(config, embedding_activation_buffer, grad_outp
         if config.sequence_parallel:
             name = "mpu_" + str((i + 1) % 2)
             all_gather_buffer = get_global_memory_buffer().get_tensor(dim_size, input.dtype, name)
-            handle = dist_all_gather_func(
+            handle = torch.distributed.all_gather_into_tensor(
                 all_gather_buffer, input, group=get_tensor_model_parallel_group(), async_op=True
             )
 

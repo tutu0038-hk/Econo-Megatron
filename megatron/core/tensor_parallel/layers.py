@@ -59,10 +59,10 @@ custom_bwd = torch.cuda.amp.custom_bwd
 
 
 if is_torch_min_version("1.13.0"):
-    dist_all_gather_func = torch.distributed.all_gather_into_tensor
+    torch.distributed.all_gather_into_tensor = torch.distributed.all_gather_into_tensor
     dist_reduce_scatter_func = torch.distributed.reduce_scatter_tensor
 else:
-    dist_all_gather_func = torch.distributed._all_gather_base
+    torch.distributed.all_gather_into_tensor = torch.distributed._all_gather_base
     dist_reduce_scatter_func = torch.distributed._reduce_scatter_base
 
 
@@ -435,7 +435,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
             dim_size[0] = dim_size[0] * world_size
 
             all_gather_buffer = get_global_memory_buffer().get_tensor(dim_size, input.dtype, "mpu")
-            dist_all_gather_func(all_gather_buffer, input, group=get_tensor_model_parallel_group())
+            torch.distributed.all_gather_into_tensor(all_gather_buffer, input, group=get_tensor_model_parallel_group())
             total_input = all_gather_buffer
         else:
             total_input = input
@@ -469,7 +469,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(torch.autograd.Function):
                 all_gather_buffer = get_global_memory_buffer().get_tensor(
                     dim_size, input.dtype, "mpu"
                 )
-                handle = dist_all_gather_func(
+                handle = torch.distributed.all_gather_into_tensor(
                     all_gather_buffer, input, group=get_tensor_model_parallel_group(), async_op=True
                 )
 
