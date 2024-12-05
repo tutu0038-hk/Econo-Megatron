@@ -1119,11 +1119,13 @@ def _backward(input, grad_tensors = None):
     return None
 
 def _apply(self, *args):
-    print("Econo, backward detected")
     if hasattr(self, "backward"):
         rank = torch.distributed.get_rank()
         BackwardCommunicateStack[rank].append((self, args))
         BackwardStack[rank].append(0)
+        print("Econo, backward detected")
+    else:
+        print("Econo, backward not detected")
     if hasattr(self, "forward"):
         self.forward(*args)
     else:
