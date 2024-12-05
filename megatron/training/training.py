@@ -1188,7 +1188,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
     num_floating_point_operations_so_far = args.num_floating_point_operations_so_far
 
     # Setup some training config params
-    config.grad_scale_func = optimizer.scale_loss
+    config.grad_scale_func = None#optimizer.scale_loss
     config.timers = timers
     if isinstance(model[0], DDP) and args.overlap_grad_reduce:
         assert config.no_sync_func is None, \
