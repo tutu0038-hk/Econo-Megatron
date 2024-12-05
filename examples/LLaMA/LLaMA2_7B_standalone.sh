@@ -74,4 +74,4 @@ options=" \
         --recompute-granularity selective
     "
 
-torchrun --nproc_per_node=32 --master_port=29500 pretrain_llama.py ${options}
+torchrun --nproc_per_node=8 --master_port=29500 pretrain_llama.py ${options}
