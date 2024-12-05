@@ -79,14 +79,13 @@ class LLaMAModel(MegatronModule):
         self.language_model.set_input_tensor(input_tensor)
 
     def forward(self, input_ids, position_ids, attention_mask,
-                ret_attn_mask=None,
                 labels=None, tokentype_ids=None, inference_params=None):
         lm_output = self.language_model(
             input_ids,
             position_ids,
             attention_mask,
-            ret_attn_mask=ret_attn_mask,
             inference_params=inference_params)
+        #Econo :
 
         if self.post_process:
             return post_language_model_processing(
