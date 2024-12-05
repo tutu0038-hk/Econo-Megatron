@@ -1124,7 +1124,10 @@ def _apply(self, *args):
         rank = torch.distributed.get_rank()
         BackwardCommunicateStack[rank].append((self, args))
         BackwardStack[rank].append(0)
-    self.forward(*args)
+    if hasattr(self, "forward"):
+        self.forward(*args)
+    else:
+        assert 0
 
 def _synchronize():
     pass
