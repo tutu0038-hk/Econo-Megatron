@@ -416,7 +416,7 @@ def core_transformer_config_from_yaml(args, transfomer_key = "language_model"):
     kw_args = core_config_from_args(args, TransformerConfig)    
     
     # Hardcoded 
-    kw_args['deallocate_pipeline_outputs'] = True
+    kw_args['deallocate_pipeline_outputs'] = False
     kw_args['pipeline_dtype'] = kw_args['params_dtype']
     kw_args['batch_p2p_comm'] = not args.overlap_p2p_comm 
     
