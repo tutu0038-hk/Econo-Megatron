@@ -83,7 +83,7 @@ def forward_step(data_iterator, model):
         data_iterator)
     timers('batch-generator').stop()
 
-    output_tensor = model(tokens, position_ids, attention_mask,
+    output_tensor = model(tokens, position_ids, attention_mask, tokentype_ids = 2,
                           labels=labels)
 
     return output_tensor, partial(loss_func, loss_mask)
