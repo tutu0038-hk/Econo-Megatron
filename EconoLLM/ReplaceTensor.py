@@ -1128,6 +1128,7 @@ def _apply(self, *args):
         print("Econo, backward not detected")
     if hasattr(self, "forward"):
         self.forward(*args)
+        print("Econo, forward not detected")
     else:
         assert 0
 
