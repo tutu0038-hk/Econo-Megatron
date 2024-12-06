@@ -132,10 +132,6 @@ from torch._subclasses.fake_tensor import (
 )
 
 from torch._subclasses.meta_utils import (
-    assert_eq,
-    assert_meta_eq,
-    is_sparse_any,
-    is_sparse_compressed,
     MetaConverter,
 )
 
