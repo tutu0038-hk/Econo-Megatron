@@ -1394,7 +1394,6 @@ def init(rank0, world_size0):
     torch.distributed.isend = _send
     torch.distributed.P2POp = P2POpReplace
     torch.cuda.synchronize = _synchronize
-    torch.Size.numel = _getsize
 
     ##
     torch.autograd.backward = _backward
