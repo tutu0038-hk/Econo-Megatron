@@ -220,6 +220,10 @@ class FakeTensorWithNoData(torch.Tensor):
     @property
     def device(self):
         return torch.device("cpu")
+    
+    @property
+    def grad(self):
+        return self.fakeShape
 
     def __getitem__(self, key):
         if isinstance(key, slice):

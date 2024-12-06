@@ -413,8 +413,9 @@ class DistributedDataParallel(_BaseDataParallel):
         calls to complete. When overlap_grad_reduce is set to False, calls synchronous
         communication ops.
         """
-        for bucket_group in self.bucket_groups + self.expert_parallel_bucket_groups:
-            bucket_group.finish_grad_sync()
+        #for bucket_group in self.bucket_groups + self.expert_parallel_bucket_groups:
+        #    bucket_group.finish_grad_sync()
+        #EconoEdit : ignore grad sync now
 
     def scale_gradients(self, scaling_factor: float):
         """Scale all gradients inside the buffers by `scaling_factor`."""
