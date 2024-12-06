@@ -133,7 +133,7 @@ from torch._subclasses.fake_tensor import (
 
 from torch._subclasses.meta_utils import (
     assert_eq,
-    assert_metadata_eq,
+    assert_meta_eq,
     is_sparse_any,
     is_sparse_compressed,
     MetaConverter,
@@ -216,6 +216,9 @@ class FakeTensorWithNoData(torch.Tensor):
     #     return self._nonzero_memo
     def data(self):
         return self
+    
+    def nelement(self):
+        return _getsize(self)
     
     @property
     def device(self):
