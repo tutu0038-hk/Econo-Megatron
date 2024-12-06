@@ -532,9 +532,9 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
             sum([sum([p.nelement() for p in model_module.parameters()])
                  for model_module in model])), flush=True)
 
-    # GPU allocation.
-    for model_module in model:
-        model_module.cuda(torch.cuda.current_device())
+    # # GPU allocation.
+    # for model_module in model:
+    #     model_module.cuda(torch.cuda.current_device())
 
     # Fp16 conversion.
     if args.fp16 or args.bf16:
