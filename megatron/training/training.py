@@ -556,39 +556,39 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
     #                 fp8_meta.amax_history[0][fp8_meta_index] = 0
 
     #Econo : ignore gpu and fp8 or fp16 trans
-    
-    if wrap_with_ddp:
-        if getattr(args, "use_torch_fsdp2", False):
-            assert HAVE_FSDP2, "Torch FSDP2 requires torch>=2.4.0"
-            DP = torch_FSDP
-        else:
-            DP = DDP
 
-        config = get_model_config(model[0])
+    # if wrap_with_ddp:
+    #     if getattr(args, "use_torch_fsdp2", False):
+    #         assert HAVE_FSDP2, "Torch FSDP2 requires torch>=2.4.0"
+    #         DP = torch_FSDP
+    #     else:
+    #         DP = DDP
 
-        kwargs = {}
-        for f in dataclasses.fields(DistributedDataParallelConfig):
-            if hasattr(args, f.name):
-                kwargs[f.name] = getattr(args, f.name)
-        kwargs['grad_reduce_in_fp32'] = args.accumulate_allreduce_grads_in_fp32
-        kwargs['check_for_nan_in_grad'] = args.check_for_nan_in_loss_and_grad
-        kwargs['bucket_size'] = args.ddp_bucket_size
-        kwargs['average_in_collective'] = args.ddp_average_in_collective
-        ddp_config = DistributedDataParallelConfig(**kwargs)
+    #     config = get_model_config(model[0])
 
-        overlap_param_gather_with_optimizer_step = getattr(args, 'overlap_param_gather_with_optimizer_step', False)
-        model = [DP(config=config,
-                     ddp_config=ddp_config,
-                     module=model_chunk,
-                     # Turn off bucketing for model_chunk 2 onwards, since communication for these
-                     # model chunks is overlapped with compute anyway.
-                     disable_bucketing=(model_chunk_idx > 0) or overlap_param_gather_with_optimizer_step)
-                 for (model_chunk_idx, model_chunk) in enumerate(model)]
+    #     kwargs = {}
+    #     for f in dataclasses.fields(DistributedDataParallelConfig):
+    #         if hasattr(args, f.name):
+    #             kwargs[f.name] = getattr(args, f.name)
+    #     kwargs['grad_reduce_in_fp32'] = args.accumulate_allreduce_grads_in_fp32
+    #     kwargs['check_for_nan_in_grad'] = args.check_for_nan_in_loss_and_grad
+    #     kwargs['bucket_size'] = args.ddp_bucket_size
+    #     kwargs['average_in_collective'] = args.ddp_average_in_collective
+    #     ddp_config = DistributedDataParallelConfig(**kwargs)
 
-        # Broadcast params from data parallel src rank to other data parallel ranks.
-        if args.data_parallel_random_init:
-            for model_module in model:
-                model_module.broadcast_params()
+    #     overlap_param_gather_with_optimizer_step = getattr(args, 'overlap_param_gather_with_optimizer_step', False)
+    #     model = [DP(config=config,
+    #                  ddp_config=ddp_config,
+    #                  module=model_chunk,
+    #                  # Turn off bucketing for model_chunk 2 onwards, since communication for these
+    #                  # model chunks is overlapped with compute anyway.
+    #                  disable_bucketing=(model_chunk_idx > 0) or overlap_param_gather_with_optimizer_step)
+    #              for (model_chunk_idx, model_chunk) in enumerate(model)]
+
+    #     # Broadcast params from data parallel src rank to other data parallel ranks.
+    #     if args.data_parallel_random_init:
+    #         for model_module in model:
+    #             model_module.broadcast_params()
 
     return model
 
