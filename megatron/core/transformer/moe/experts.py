@@ -98,14 +98,14 @@ class GroupedMLP(MegatronModule):
         # and as a result we avoid allocate the transpose of weights.
         # Initialize weight.
         if config.use_cpu_initialization:
-            self.weight1 = Parameter(
+            self.weight1 = torch.nn.Parameter(
                 torch.empty(
                     self.config.hidden_size,
                     fc1_output_size_per_partition,
                     dtype=config.params_dtype,
                 )
             )
-            self.weight2 = Parameter(
+            self.weight2 = torch.nn.Parameter(
                 torch.empty(
                     fc2_input_size_per_partition, self.config.hidden_size, dtype=config.params_dtype
                 )
@@ -130,7 +130,7 @@ class GroupedMLP(MegatronModule):
                     params_dtype=config.params_dtype,
                 )
         else:
-            self.weight1 = Parameter(
+            self.weight1 = torch.nn.Parameter(
                 torch.empty(
                     self.config.hidden_size,
                     fc1_output_size_per_partition,
@@ -138,7 +138,7 @@ class GroupedMLP(MegatronModule):
                     dtype=config.params_dtype,
                 )
             )
-            self.weight2 = Parameter(
+            self.weight2 = torch.nn.Parameter(
                 torch.empty(
                     fc2_input_size_per_partition,
                     self.config.hidden_size,

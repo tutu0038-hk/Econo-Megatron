@@ -20,7 +20,7 @@ class RMSNorm(torch.nn.Module):
         """
         super().__init__()
         self.eps = eps
-        self.weight = nn.Parameter(torch.ones(dim))
+        self.weight = torch.nn.Parameter(torch.ones(dim))
 
         setattr(self.weight, 'sequence_parallel', sequence_parallel)
 

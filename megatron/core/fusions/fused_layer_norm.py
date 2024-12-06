@@ -109,8 +109,8 @@ class FusedLayerNorm(torch.nn.Module):
         self.hidden_size = torch.Size(hidden_size)
         self.eps = eps
         # Parameters need to be initialized with torch.empty rather than torch.Tensor for correct device placement with nemo2.
-        self.weight = Parameter(torch.empty(*hidden_size))
-        self.bias = Parameter(torch.empty(*hidden_size))
+        self.weight = torch.nn.Parameter(torch.empty(*hidden_size))
+        self.bias = torch.nn.Parameter(torch.empty(*hidden_size))
         self.reset_parameters()
         self.persist_layer_norm = persist_layer_norm
         self.sequence_parallel = self.config.sequence_parallel

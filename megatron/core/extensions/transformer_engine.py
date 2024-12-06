@@ -347,7 +347,7 @@ class TELayerNormColumnParallelLinear(te.pytorch.LayerNormLinear):
                 skip_set_tensor_parallel_attributes=True,
             )
             if bias:
-                self.bias = Parameter(
+                self.bias = torch.nn.Parameter(
                     torch.empty(output_size_per_partition, dtype=config.params_dtype)
                 )
                 set_tensor_model_parallel_attributes(self.bias, True, 0, 1)
@@ -436,7 +436,7 @@ class TEColumnParallelLinear(TELinear):
                 skip_set_tensor_parallel_attributes=True,
             )
             if bias:
-                self.bias = Parameter(
+                self.bias = torch.nn.Parameter(
                     torch.empty(output_size_per_partition, dtype=config.params_dtype)
                 )
                 set_tensor_model_parallel_attributes(self.bias, True, 0, 1)
@@ -511,7 +511,7 @@ class TERowParallelLinear(TELinear):
                 skip_set_tensor_parallel_attributes=True,
             )
             if bias:
-                self.bias = Parameter(torch.empty(output_size, dtype=config.params_dtype))
+                self.bias = torch.nn.Parameter(torch.empty(output_size, dtype=config.params_dtype))
                 # Always initialize bias to zero.
                 with torch.no_grad():
                     self.bias.zero_()

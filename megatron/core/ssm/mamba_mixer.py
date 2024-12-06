@@ -211,7 +211,7 @@ class MambaMixer(MegatronModule):
             # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
             inv_dt = dt + torch.log(-torch.expm1(-dt))
             with torch.no_grad():
-                self.dt_bias = nn.Parameter(inv_dt)
+                self.dt_bias = torch.nn.Parameter(inv_dt)
             # Our initialization would set all Linear.bias to zero,
             # need to mark this one as _no_reinit
             self.dt_bias._no_reinit = True
@@ -226,12 +226,12 @@ class MambaMixer(MegatronModule):
                 self.nheads_local, dtype=torch.float32, device=torch.cuda.current_device()
             ).uniform_(*A_init_range)
             A_log = torch.log(A)  # Keep A_log in fp32
-            self.A_log = nn.Parameter(A_log)
+            self.A_log = torch.nn.Parameter(A_log)
             self.A_log._no_weight_decay = True
             setattr(self.A_log, 'tensor_model_parallel', True)
 
         # D "skip" parameter
-        self.D = nn.Parameter(
+        self.D = torch.nn.Parameter(
             torch.ones(
                 self.d_inner_local if self.D_has_hdim else self.nheads_local,
                 device=torch.cuda.current_device(),
