@@ -458,6 +458,8 @@ class _ParamAndGradBuffer:
         for param in params[::-1]:
             # Iterate through parameters in reverse order to roughly follow backprop order.
 
+            print(param)
+            print(param.data)
             this_numel = param.data.nelement()
             param_start_index = _pad_start_of_param_if_needed(param_start_index)
 
