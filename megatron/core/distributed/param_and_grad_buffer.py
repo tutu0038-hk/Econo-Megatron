@@ -458,9 +458,7 @@ class _ParamAndGradBuffer:
         for param in params[::-1]:
             # Iterate through parameters in reverse order to roughly follow backprop order.
 
-            print(param)
-            print(param.data)
-            this_numel = param.data.nelement()
+            this_numel = param.nelement()
             param_start_index = _pad_start_of_param_if_needed(param_start_index)
 
             # Create bucket with collected parameters if current param needs its own bucket.
@@ -582,7 +580,7 @@ class _ParamAndGradBuffer:
         for index, bucket in enumerate(self.buckets):
             numel = 0
             for param in bucket.params:
-                numel += param.data.nelement()
+                numel += param.nelement()
             log_strs.append(f'Params for bucket {index+1} ({numel} elements):')
             for param in bucket.params:
                 log_strs.append(f'\t{param_to_name[param]}')
