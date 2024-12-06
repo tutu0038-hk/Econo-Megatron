@@ -650,9 +650,9 @@ def _Linear(input: Tensor, weight, bias: Optional[Tensor] = None,
     return output
 
 def _matmul(tensorA, tensorB):
-    if type(tensorB) is int:
+    if type(tensorB) is int or type(tensorB) is float:
         return tensorA
-    if type(tensorA) is int:
+    if type(tensorA) is int or type(tensorA) is float:
         return tensorB
     tensorA = MakeFake(tensorA)
     tensorB = MakeFake(tensorB)
