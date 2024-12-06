@@ -1113,6 +1113,7 @@ def _detach(self):
     return self
 
 def _backward(input, grad_tensors = None):
+    return
     rank = torch.distributed.get_rank()
     while(BackwardCommunicateStack[rank].empty() == False):
         WriteRecord(9, BackwardStack[rank][-1])
@@ -1265,43 +1266,43 @@ class FunctionFake(_SingleLevelFunction):
         return (ctx._autograd_function_id,)
 
 
-# def _apply(cls, *args, **kwargs):
-#     # def bind_default_args(func, *args, **kwargs):
-#     #     signature = inspect.signature(func)
-#     #     bound_args = signature.bind(*args, **kwargs)
-#     #     bound_args.apply_defaults()
+def _apply(cls, *args, **kwargs):
+    return
+    # def bind_default_args(func, *args, **kwargs):
+    #     signature = inspect.signature(func)
+    #     bound_args = signature.bind(*args, **kwargs)
+    #     bound_args.apply_defaults()
 
-#     #     return bound_args.args
+    #     return bound_args.args
 
-#     # is_setup_ctx_defined = cls.setup_context != _SingleLevelFunction.setup_context
-#     # if is_setup_ctx_defined:
-#     #     args = bind_default_args(cls.forward, *args, **kwargs)
+    # is_setup_ctx_defined = cls.setup_context != _SingleLevelFunction.setup_context
+    # if is_setup_ctx_defined:
+    #     args = bind_default_args(cls.forward, *args, **kwargs)
 
-#     # if not torch._C._are_functorch_transforms_active():
-#     #     # See NOTE: [functorch vjp and autograd interaction]
-#     #     args = _functorch.utils.unwrap_dead_wrappers(args)
-#     #     return super().apply(*args, **kwargs)  # type: ignore[misc]
+    # if not torch._C._are_functorch_transforms_active():
+    #     # See NOTE: [functorch vjp and autograd interaction]
+    #     args = _functorch.utils.unwrap_dead_wrappers(args)
+    #     return super().apply(*args, **kwargs)  # type: ignore[misc]
 
-#     # if not is_setup_ctx_defined:
-#     #     raise RuntimeError(
-#     #         "In order to use an autograd.Function with functorch transforms "
-#     #         "(vmap, grad, jvp, jacrev, ...), it must override the setup_context "
-#     #         "staticmethod. For more details, please see "
-#     #         "https://pytorch.org/docs/main/notes/extending.func.html"
-#     #     )
-#     if hasattr(cls, "backward"):
-#         rank = torch.distributed.get_rank()
-#         BackwardCommunicateStack[rank].append((cls, args))
-#         BackwardStack[rank].append(0)
-#         print("Econo, backward detected")
-#         print(cls.__class__.__name__)
-#         print(*args)
-#     else:
-#         print("Econo, backward not detected")
+    # if not is_setup_ctx_defined:
+    #     raise RuntimeError(
+    #         "In order to use an autograd.Function with functorch transforms "
+    #         "(vmap, grad, jvp, jacrev, ...), it must override the setup_context "
+    #         "staticmethod. For more details, please see "
+    #         "https://pytorch.org/docs/main/notes/extending.func.html"
+    #     )
+    if hasattr(cls, "backward"):
+        rank = torch.distributed.get_rank()
+        BackwardCommunicateStack[rank].append((cls, args))
+        BackwardStack[rank].append(0)
+        print("Econo, backward detected")
+        print(cls.__class__.__name__)
+        print(*args)
+    else:
+        print("Econo, backward not detected")
     
-#     return custom_function_call(cls, *args, **kwargs)
+    return custom_function_call(cls, *args, **kwargs)
     
-
 def _synchronize():
     pass
 
@@ -1392,6 +1393,7 @@ def init(rank0, world_size0):
     torch.autograd.backward = _backward
     torch.Tensor.retain_grad = _retain_grad
     torch.autograd.Function = FunctionFake
+    torch.autograd.Function.apply = _apply
  
 if __name__ == "__main__":
     solve()
