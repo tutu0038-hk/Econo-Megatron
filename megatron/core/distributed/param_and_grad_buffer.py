@@ -595,7 +595,7 @@ class _ParamAndGradBuffer:
         Return a tensor with the input `shape` as a view into the 1-D data starting at
         `start_index`.
         """
-        end_index = start_index + shape.numel()
+        end_index = start_index + torch.Size(shape).numel()
         assert end_index <= self.numel, 'Requested tensor is out of buffer range'
         if buffer_type == BufferType.PARAM:
             assert self.param_data is not None

@@ -216,6 +216,9 @@ class FakeTensorWithNoData(torch.Tensor):
     def nelement(self):
         return _getsize(self)
     
+    def numel(self):
+        return _getsize(self)
+    
     @property
     def device(self):
         return torch.device("cpu")
@@ -1391,6 +1394,7 @@ def init(rank0, world_size0):
     torch.distributed.isend = _send
     torch.distributed.P2POp = P2POpReplace
     torch.cuda.synchronize = _synchronize
+    torch.Size.numel = _getsize
 
     ##
     torch.autograd.backward = _backward
