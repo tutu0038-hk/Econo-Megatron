@@ -106,7 +106,7 @@ class ShardedTensor(ShardedBase):
                 raise CheckpointingException(
                     f'Data dtype should match `dtype` attribute for {self}'
                 )
-            if not has_flattened_range and self.data.shape != self.local_shape:
+            if not has_flattened_range and self.fakeShape != self.local_shape:
                 raise CheckpointingException(
                     f'Data shape should match `local_shape` attribute for {self}'
                 )
@@ -117,9 +117,9 @@ class ShardedTensor(ShardedBase):
                 try:
                     self.data = None
                     self.init_data(device='meta')
-                    if self.data.shape != real_data.shape:
+                    if self.fakeShape != real_data.shape:
                         raise CheckpointingException(
-                            f'Data shape doesnt match expected {self.data.shape} for {self}'
+                            f'Data shape doesnt match expected {self.fakeShape} for {self}'
                         )
                 finally:
                     self.data = real_data

@@ -527,7 +527,7 @@ class _ParamAndGradBuffer:
             if self.param_data is not None:
                 old_param_data = param.data
                 new_param_data = self._get(
-                    param.data.shape, param_start_index, buffer_type=BufferType.PARAM
+                    param.fakeShape, param_start_index, buffer_type=BufferType.PARAM
                 )
                 if is_float8tensor(param):
                     param._data = new_param_data
@@ -539,7 +539,7 @@ class _ParamAndGradBuffer:
                 del old_param_data
 
             param.main_grad = self._get(
-                param.data.shape, param_start_index, buffer_type=BufferType.GRAD
+                param.fakeShape, param_start_index, buffer_type=BufferType.GRAD
             )
             if bucket_id != cur_bucket_id:
                 bucket_end_index = _pad_end_of_bucket_if_needed(param_start_index)

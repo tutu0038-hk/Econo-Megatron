@@ -225,7 +225,7 @@ def sharded_tensor_to_torch_sharded_tensor(
             )  # adjust to prepended_axis_num
 
         global_shape = some_sh_ten.global_shape
-        offsets_shape = some_sh_ten.data.shape  # includes prepended axes
+        offsets_shape = some_sh_ten.fakeShape  # includes prepended axes
 
         local_shards = [
             Shard.from_tensor_and_offsets(
@@ -246,7 +246,7 @@ def sharded_tensor_to_torch_sharded_tensor(
             for sh_ten in local_global_offsets[offset]:
                 if is_flattened_range_1d:
                     offset = (sh_ten.global_offset[0] + sh_ten.flattened_range.start,)
-                    size = sh_ten.data.shape
+                    size = sh_ten.fakeShape
                 elif has_flattened_range:
                     assert offset == sh_ten.local_chunk_offset_in_global()
                     # This is not an actual offset, but an offset of the whole shard
@@ -254,7 +254,7 @@ def sharded_tensor_to_torch_sharded_tensor(
                     offset = sh_ten.local_chunk_offset_in_global() + (0,)
                     size = (1,) * len(offsets_shape) + global_shape[-1:]
                 else:
-                    size = sh_ten.data.shape
+                    size = sh_ten.fakeShape
                 shard_metadata.append(ShardMetadata(offset, size, placement))
 
         else:

@@ -251,7 +251,7 @@ class CheckpointFunction(torch.autograd.Function):
         # Divide hidden states across model parallel group and only keep
         # the chunk corresponding to the current rank.
         if distribute_saved_activations:
-            ctx.input_0_shape = args[0].data.shape
+            ctx.input_0_shape = args[0].fakeShape
             safely_set_viewless_tensor_data(
                 args[0], split_tensor_into_1d_equal_chunks(args[0].data, new_buffer=True)
             )
