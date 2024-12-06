@@ -34,6 +34,7 @@ def model_provider(pre_process=True, post_process=True):
     args.transformer_impl = "local"
     args.batch_p2p_comm = True
     args.deallocate_pipeline_outputs = False
+    args.check_for_nan_in_loss_and_grad = False
     config = core_transformer_config_from_args(args)
     num_tokentypes = 2 if args.bert_binary_head else 0
     model = LLaMAModel(
