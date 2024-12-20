@@ -126,6 +126,6 @@ if __name__ == "__main__":
     )
 
     rank = torch.distributed.get_rank()
-    EconoLLM.ReplaceTensor.print_trace(rank)
+    #EconoLLM.ReplaceTensor.print_trace(rank)
     if rank == 0:
         EconoLLM.ReplaceTensor.solve()
