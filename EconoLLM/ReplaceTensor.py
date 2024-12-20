@@ -939,7 +939,7 @@ def _send(tensor: torch.Tensor, dst: int, group: Optional[ProcessGroup] = None, 
     else:
         pg = group
     group_dst_rank = torch.distributed.get_group_rank(pg, dst)
-    flops = _getsize(tensor)
+    flops = 0 #_getsize(tensor)
     WriteRecordSendrecv(3, computationPool[torch.distributed.get_rank()], flops, group_dst_rank)
     return ()
 
@@ -948,7 +948,7 @@ def _recv(tensor: torch.Tensor, src: int, group: Optional[ProcessGroup] = None, 
         pg = c10d._get_default_group()
     else:
         pg = group
-    flops = _getsize(tensor)
+    flops = 0 #_getsize(tensor)
     group_src_rank = torch.distributed.get_group_rank(pg, src)
     WriteRecordSendrecv(4, computationPool[torch.distributed.get_rank()], flops, group_src_rank)
     return ()
