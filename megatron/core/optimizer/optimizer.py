@@ -57,6 +57,7 @@ def _zero_grad_group_helper(group: List[torch.nn.Parameter], set_to_none: bool):
     Zero out the gradient for a group of parameters.
     Note: copied from torch.optim.optimizer.
     """
+    return
     for param in group:
         if param.grad is not None:
             if set_to_none:
@@ -128,6 +129,7 @@ class MegatronOptimizer(ABC):
             computing norms).
           - should not be a replica due to tensor model parallelism.
         """
+        return
         params = self.get_parameters()
         grads_for_norm = []
         for param in params:

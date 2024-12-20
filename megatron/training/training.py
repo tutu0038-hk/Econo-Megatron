@@ -758,7 +758,7 @@ def train_step(forward_step_func, data_iterator,
     # Set grad to zero.
     for model_chunk in model:
         model_chunk.zero_grad_buffer()
-    optimizer.zero_grad()
+    #optimizer.zero_grad()
 
     # Forward pass.
     forward_backward_func = get_forward_backward_func()
