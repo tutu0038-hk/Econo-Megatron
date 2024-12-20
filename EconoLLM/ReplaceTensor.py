@@ -691,12 +691,12 @@ def _Linear(input: Tensor, weight, bias: Optional[Tensor] = None,
         sizes += _getsize(bias)        
     output.gradientSize = input.gradientSize + weight.gradientSize + _getsize(output)
     
-    print(flops / computationSpeed)
-    nn.functional.linear = BackupLinear
+    #print(flops / computationSpeed)
+    #nn.functional.linear = BackupLinear
     #LinearOutput = linearModel(X_train_tensor)
-    flops = flops / (6 * 18 * 8192 * 1024) * 0.0449 * computationSpeed
-    nn.functional.linear = _Linear
-    print(flops)
+    #flops = flops / (6 * 18 * 8192 * 1024) * 0.0449 * computationSpeed
+    #nn.functional.linear = _Linear
+    #print(flops)
 
     _RecordCompute(flops)
     _RecordMemory(sizes)
