@@ -1549,6 +1549,7 @@ def solve():
             times[rank] = realTime
             _insert(rank, index[rank])
         elif Record.type == 3 or Record.type == 4: ##send and recv
+            pass
             dstRecv = Record.ranks[0]
             if status[dstRecv] == gpus:
                 status[rank] = dstRecv
@@ -1564,6 +1565,7 @@ def solve():
                 status[rank] = dstRecv
                 times[rank] += Record.flops
         elif Record.type == 5: ##barrier
+            pass
             status[rank] = -Record.type
             done = True
             for globalrank in Record.ranks:
