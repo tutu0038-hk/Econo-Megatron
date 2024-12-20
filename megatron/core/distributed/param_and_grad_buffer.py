@@ -538,8 +538,6 @@ class _ParamAndGradBuffer:
                 param.data.detach().copy_(old_param_data)
                 del old_param_data
 
-            print(param)
-            print(param.shape)
             param.main_grad = self._get(
                 param.fakeShape, param_start_index, buffer_type=BufferType.GRAD
             )
