@@ -6,8 +6,8 @@ DATASET_3="./"
 DATASET="0.2 ${DATASET_1} 0.3 ${DATASET_2} 0.5 ${DATASET_3}"
 
 TP_SIZE=2
-PP_SIZE=2
-WORLD_SIZE=8
+PP_SIZE=4
+WORLD_SIZE=32
 MICRO_BATCH_SIZE=8
 # The int is the number of micro steps of gradient accumulation
 GLOBAL_BATCH_SIZE=$((($WORLD_SIZE * $MICRO_BATCH_SIZE) / ($TP_SIZE * $PP_SIZE) * 8))
@@ -74,4 +74,4 @@ options=" \
         --recompute-granularity selective
     "
 
-torchrun --nproc_per_node=8 --master_port=29500 pretrain_llama.py ${options}
+torchrun --nproc_per_node=32 --master_port=29500 pretrain_llama.py ${options}
