@@ -1492,11 +1492,13 @@ def solve():
     def _insert(rank, index):
         line = recordFile[rank].readline()
         if line:
+            print(rank, line)
             string = str.split(line)
             types = int(string[1])
             flops = float(string[2])
             comni = float(string[3])
             line = recordFile[rank].readline()
+            print(rank, line)
             string = str.split(line)
             ranks = []
             for i in string:
@@ -1506,6 +1508,8 @@ def solve():
 
     for i in range(gpus):
         _insert(i, 0)
+
+    print(gpus)
 
     totalTime = 0
     printTrace = True
