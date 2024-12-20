@@ -1516,20 +1516,20 @@ def solve():
         index[rank] = i
         pretimes[rank] = realTime
 
-        # if totalTime < realTime and printTrace:
-        #     print(totalTime)
-        #     print(times)
-        #     print(status)
-        #     gpuStatus = ""
-        #     for i in range(gpus):
-        #         gpuStatus += "GPU %d: " % i
-        #         if status[i] == gpus:
-        #             gpuStatus += "Running, "
-        #         else:
-        #             gpuStatus += "Waiting, "
-        #     print(gpuStatus)
-        #     totalTime = realTime
-        #     msd = input("")
+        if totalTime < realTime and printTrace:
+            print(totalTime)
+            print(times)
+            print(status)
+            gpuStatus = ""
+            for i in range(gpus):
+                gpuStatus += "GPU %d: " % i
+                if status[i] == gpus:
+                    gpuStatus += "Running, "
+                else:
+                    gpuStatus += "Waiting, "
+            print(gpuStatus)
+            totalTime = realTime
+            msd = input("")
 
         if Record.type == 1 or Record.type == 2 or Record.type == 6 or Record.type == 7 or Record.type == 8: 
             #all_gather or all_reduce or broadcast etc. all these operation should wait for the process in the group
