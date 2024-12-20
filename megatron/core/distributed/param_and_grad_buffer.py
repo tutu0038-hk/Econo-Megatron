@@ -520,6 +520,7 @@ class _ParamAndGradBuffer:
         bucket_params = []
         bucket_start_index = 0
         cur_bucket_id = 0
+        return
         for param in params[::-1]:
             param_start_index, param_end_index, bucket_id = self.param_index_map[param]
 

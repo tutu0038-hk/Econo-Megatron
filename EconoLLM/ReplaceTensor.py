@@ -7,6 +7,8 @@ import os
 from torch import nn, Tensor
 import torch.distributed
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
+import torch.utils.benchmark as benchmark
+from torch.nn import Linear
 
 import torch.distributed as dist
 import torch.nn as nn
@@ -30,7 +32,7 @@ from torch._prims_common import ShapeType
 # import EconoLLM.EconoTorch
 # import EconoLLM.EconoNCCL
 # import EconoLLM.Recorder
-from EconoLLM.solver import solve
+#from EconoLLM.solver import solve
 
 import torch._functorch as _functorch
 import torch.utils.hooks as hooks
@@ -63,6 +65,37 @@ computationFile = [0] * gpus
 DetailRecord = [""] * gpus
 BackwardStack = [[] for _ in range(gpus)]
 BackwardCommunicateStack = [[] for _ in range(gpus)]
+rec = dict()
+
+class LinearInputNet(nn.Module):
+    def __init__(self):
+        super(LinearInputNet, self).__init__()
+        # 定义网络结构
+        self.fc1 = Linear(1, 16)  # 输入层：输入 3 个特征，输出 16 个隐藏神经元
+        self.fc2 = Linear(16, 8)  # 隐藏层：输入 16，输出 8
+        self.fc3 = Linear(8, 1)   # 输出层：输入 8，输出 1（标量）
+        self.relu = nn.ReLU()        # 激活函数
+
+    def forward(self, x):
+        # 前向传播路径
+        x = self.relu(self.fc1(x))  # 第一层 + 激活
+        x = self.relu(self.fc2(x))  # 第二层 + 激活
+        x = self.fc3(x)             # 最后一层（输出标量）
+        return x
+    
+class LinearInputNet1(nn.Module):
+    def __init__(self):
+        super(LinearInputNet, self).__init__()
+        # 定义网络结构
+        self.fc1 = Linear(1, 1)
+
+    def forward(self, x):
+        # 前向传播路径
+        x = self.fc1(x)
+        return x
+
+linearModel = LinearInputNet()
+softmaxModel = LinearInputNet()
 
 KB = 1024
 MB = 1024 * KB
@@ -125,6 +158,7 @@ def _getsize(input):
 
 backupReshape = torch.Tensor.reshape
 backupView = torch.Tensor.view
+BackupLinear = nn.functional.linear
 
 from torch._subclasses.fake_tensor import (
     FakeTensor,
@@ -269,7 +303,7 @@ class FakeTensorWithNoData(torch.Tensor):
     
     def __add__(self, other):
         sizes = _getsize(self) * 3
-        _RecordMemory(sizes)
+        _RecordMemory(sizes * self.elementSize)
         return self
     
     @property
@@ -632,14 +666,20 @@ def _flatten(self, start_dim = 0, end_dim = -1):
 
 def _Linear(input: Tensor, weight, bias: Optional[Tensor] = None, 
     scale: Optional[float] = None, zero_point: Optional[int] = None):
+
     weight = MakeFake(weight)
     dim = len(input.fakeShape)
+    len2 = len(weight.fakeShape) 
+    totalDim = 1
+    for i in range(dim):
+        totalDim *= input.fakeShape[i]
+    X_train_tensor = torch.Tensor([[totalDim / input.fakeShape[-1] * input.fakeShape[-1] * weight.fakeShape[len2 - 2]]])
+
     outDim = [0] * dim
     totalDim = 1
     for i in range(dim):
         outDim[i] = input.fakeShape[i]
         totalDim *= outDim[i]
-    len2 = len(weight.fakeShape) 
     flops = totalDim * weight.fakeShape[len2 - 2]
     totalDim = totalDim / outDim[dim - 1] * weight.fakeShape[len2 - 2]
     outDim[dim - 1] = weight.fakeShape[len2 - 2]
@@ -650,8 +690,20 @@ def _Linear(input: Tensor, weight, bias: Optional[Tensor] = None,
         flops += totalDim #Ax + b
         sizes += _getsize(bias)        
     output.gradientSize = input.gradientSize + weight.gradientSize + _getsize(output)
+    
+    print(flops / computationSpeed)
+    nn.functional.linear = BackupLinear
+    #LinearOutput = linearModel(X_train_tensor)
+    flops = flops / (6 * 18 * 8192 * 1024) * 0.0449 * computationSpeed
+    nn.functional.linear = _Linear
+    print(flops)
+
     _RecordCompute(flops)
     _RecordMemory(sizes)
+
+    # print(input.fakeShape)
+    # print(weight.fakeShape)
+    # print(flops)
     #DetailRecord[torch.distributed.get_rank()] += "Linear" + input.fakeShape + " " + weight.FakeShape + "\n"
     return output
 
@@ -693,22 +745,19 @@ def _embeddings(input, weight, padding_idx=None, max_norm=None, norm_type=2.0, s
         inputTensor = FetchFakeTensor([1], 4)
     else:
         inputTensor = input
-    dim = len(inputTensor.fakeShape)
-    outDim = [0] * dim
-    totalDim = 1
-    for i in range(dim):
-        outDim[i] = inputTensor.fakeShape[i]
-        totalDim *= outDim[i]
-    len2 = len(weight.fakeShape) 
-    flops = totalDim * weight.fakeShape[len2 - 2]
-    totalDim = totalDim / outDim[dim - 1] * weight.fakeShape[len2 - 2]
-    outDim[dim - 1] = weight.fakeShape[len2 - 2]
-    flops *= 2
+    outDim = inputTensor.fakeShape[:]
+    outDim.append(weight.fakeShape[-1])
+    #print(input.fakeShape)
+    #print(weight.fakeShape)
+    flops = 0
     output = FetchFakeTensor(outDim, weight.elementSize)
     output.gradientSize = inputTensor.gradientSize + weight.gradientSize + _getsize(output)
     sizes = _getsize(weight) + _getsize(inputTensor) + _getsize(output)
     _RecordCompute(flops)
     _RecordMemory(sizes)
+    #print(input.fakeShape)
+    #print(weight.fakeShape)
+    #print(output.fakeShape)
     return output
 
 def _baddbmm(input, batch1, batch2, beta=1, alpha=1, out=None):
@@ -838,7 +887,7 @@ def _tocuda(
         self,
         memory_format=torch.preserve_format,
         process_group=None):
-    self = MakeFake(self)
+    #self = MakeFake(self)
     output = FetchFakeTensor(self.fakeShape, self.elementSize)
     flops = 1
     for i in self.fakeShape:
@@ -1040,14 +1089,17 @@ def _argmax(self, dim, keepdim = False):
 def _empty_like(self):
     return self
 
+BackupPara = torch.nn.parameter.Parameter
 def _cat(self, dim=0, out=None):
-    print(self[0].fakeShape)
     length = len(self)
-    oudDim = self[0].fakeShape
-    oudDim[dim] *= length
-    out = FetchFakeTensor(oudDim, self[0].elementSize)
-    out.gradientSize = self[0].gradientSize
-    print=(out.fakeShape)
+    outDim = self[0].fakeShape[:]
+    outDim[dim] *= length
+    #print(self[0].fakeShape[:])
+    if out != None:
+        out.fakeShape = outDim
+        out.gradientSize = self[0].gradientSize
+    else:
+        out = FetchFakeTensor(outDim, self[0].element_size())
     return out
 
 def _permute(self, *fakeShape):
@@ -1079,11 +1131,19 @@ def _empty(*size, out=None, dtype=None, layout=torch.strided, device=None, requi
     out = FetchFakeTensor(allShapes, 4)
     return out
 
+def _hstack(tensers, out = None):
+    outdim = tensers[0].fakeShape[:]
+    outdim[1] *= 2
+    out = FetchFakeTensor(outdim, tensers[0].elementSize)
+    return out
+
 def _split(self, split_size_or_sections, dim=0):
-    self = MakeFake(self)
+    #self = MakeFake(self)
     if isinstance(split_size_or_sections, int):     
         count = int(self.fakeShape[dim] / split_size_or_sections)
+        #print("_split", self.fakeShape)
         self.fakeShape[dim] = split_size_or_sections
+        #print("_split", self.fakeShape)
         out = []
         for i in range(count):
             outTensor = FetchFakeTensor(self.fakeShape, self.elementSize)
@@ -1318,6 +1378,12 @@ def _retain_grad(self):
     pass
 
 def init(rank0, world_size0):
+    
+    path = os.getcwd() + "/result/LinearPara.pth" 
+    linearModel = torch.load(path)
+    path = os.getcwd() + "/result/SoftMax.pth" 
+    #softmaxModel = torch.load(path)
+
     memorySpeed = 3.35 * TB
     communicationSpeed = 900 * GB
     comunicationLatency = 10 * 1e-6
@@ -1357,7 +1423,6 @@ def init(rank0, world_size0):
     torch.baddbmm = _baddbmm
     torch.empty = _empty
     torch.split = _split
-    #torch.Tensor = new_tensor
     Parameter = _Parameter
     torch.nn.parameter = _Parameter
     torch.nn.parameter.Parameter = _Parameter
@@ -1368,6 +1433,7 @@ def init(rank0, world_size0):
     torch.rsqrt = _rsqrt
     torch.Tensor.pow = _pow
     torch.Tensor.mean = _mean
+    torch.hstack = _hstack
 
     #torch.set_default_tensor_type = _set_default_type
     #torch.distributed.get_world_size =  _world_size
@@ -1420,25 +1486,23 @@ def solve():
     q = PriorityQueue()
 
     for rank in range(gpus):
-        filename = os.getcwd() + "/result2/p%d.txt" % rank
-        ec.recordFile[rank] = open(filename, "r")
+        filename = os.getcwd() + "/result/p%d.txt" % rank
+        recordFile[rank] = open(filename, "r")
 
-    # filename = os.getcwd() + "/result/ec.Trace.txt"
-    # output = open(filename, "w")
     def _insert(rank, index):
-        line = ec.recordFile[rank].readline()
+        line = recordFile[rank].readline()
         if line:
             string = str.split(line)
             types = int(string[1])
             flops = float(string[2])
             comni = float(string[3])
-            line = ec.recordFile[rank].readline()
+            line = recordFile[rank].readline()
             string = str.split(line)
             ranks = []
             for i in string:
                 ranks.append(int(i))
-            ec.Trace[rank] = ec.records(types, flops, comni, ranks)
-            q.put((times[rank] + ec.Trace[rank].flops, [rank, index + 1]))
+            Trace[rank] = records(types, flops, comni, ranks)
+            q.put((times[rank] + Trace[rank].flops, [rank, index + 1]))
 
     for i in range(gpus):
         _insert(i, 0)
@@ -1448,24 +1512,24 @@ def solve():
     while q.empty() == False:
         realTime, now = q.get()
         rank, i = now
-        Record = ec.Trace[rank]
+        Record = Trace[rank]
         index[rank] = i
         pretimes[rank] = realTime
 
-        if totalTime < realTime and printTrace:
-            print(totalTime)
-            print(times)
-            print(status)
-            gpuStatus = ""
-            for i in range(gpus):
-                gpuStatus += "GPU %d: " % i
-                if status[i] == gpus:
-                    gpuStatus += "Running, "
-                else:
-                    gpuStatus += "Waiting, "
-            print(gpuStatus)
-            totalTime = realTime
-            msd = input("")
+        # if totalTime < realTime and printTrace:
+        #     print(totalTime)
+        #     print(times)
+        #     print(status)
+        #     gpuStatus = ""
+        #     for i in range(gpus):
+        #         gpuStatus += "GPU %d: " % i
+        #         if status[i] == gpus:
+        #             gpuStatus += "Running, "
+        #         else:
+        #             gpuStatus += "Waiting, "
+        #     print(gpuStatus)
+        #     totalTime = realTime
+        #     msd = input("")
 
         if Record.type == 1 or Record.type == 2 or Record.type == 6 or Record.type == 7 or Record.type == 8: 
             #all_gather or all_reduce or broadcast etc. all these operation should wait for the process in the group
@@ -1519,6 +1583,6 @@ def solve():
         else:
             pass
     print(times)
-
+    
 if __name__ == "__main__":
     solve()
