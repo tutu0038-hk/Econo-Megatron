@@ -487,6 +487,7 @@ def forward_backward_no_pipelining(
         backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config)
 
     if config.finalize_model_grads_func is not None and not forward_only:
+        pass
         # Finalize model grads (perform full grad all-reduce / reduce-scatter for
         # data parallelism and layernorm all-reduce for sequence parallelism).
         # config.finalize_model_grads_func(
