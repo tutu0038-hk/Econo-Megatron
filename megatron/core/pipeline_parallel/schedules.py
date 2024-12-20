@@ -446,7 +446,7 @@ def forward_backward_no_pipelining(
 
     forward_data_store = []
     input_tensor, output_tensor_grad = None, None
-    total_num_tokens = torch.zeros([], dtype=torch.int, device="cuda")
+    #total_num_tokens = torch.zeros([], dtype=torch.int, device="cuda")
     with no_sync_func():
         for i in range(num_microbatches - 1):
             output_tensor, num_tokens = forward_step(
@@ -461,7 +461,7 @@ def forward_backward_no_pipelining(
                 is_first_microbatch=check_first_val_step(first_val_step, forward_only, i == 0),
                 current_microbatch=i,
             )
-            total_num_tokens += num_tokens.item()
+            #total_num_tokens += num_tokens.item()
             if not forward_only:
                 backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config)
 
@@ -481,7 +481,7 @@ def forward_backward_no_pipelining(
         ),
         current_microbatch=num_microbatches - 1,
     )
-    total_num_tokens += num_tokens.item()
+    #total_num_tokens += num_tokens.item()
 
     if not forward_only:
         backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config)
@@ -489,9 +489,9 @@ def forward_backward_no_pipelining(
     if config.finalize_model_grads_func is not None and not forward_only:
         # Finalize model grads (perform full grad all-reduce / reduce-scatter for
         # data parallelism and layernorm all-reduce for sequence parallelism).
-        config.finalize_model_grads_func(
-            [model], total_num_tokens if config.calculate_per_token_loss else None
-        )
+        # config.finalize_model_grads_func(
+        #     [model], total_num_tokens if config.calculate_per_token_loss else None
+        # )
 
     if config.timers is not None:
         config.timers('forward-backward').stop()
@@ -633,7 +633,7 @@ def forward_backward_pipelining_with_interleaving(
 
     input_tensors = [[] for _ in range(len(model))]
     output_tensors = [[] for _ in range(len(model))]
-    total_num_tokens = torch.tensor(0, dtype=torch.int).cuda()
+    #total_num_tokens = torch.tensor(0, dtype=torch.int).cuda()
 
     forward_data_store = []
     if not forward_only:
@@ -912,8 +912,8 @@ def forward_backward_pipelining_with_interleaving(
 
         output_tensors[model_chunk_id].append(output_tensor)
 
-        nonlocal total_num_tokens
-        total_num_tokens += num_tokens.item()
+        #nonlocal total_num_tokens
+        #total_num_tokens += num_tokens.item()
 
         # If forward-only, no need to save tensors for a backward pass.
         if forward_only:
@@ -1460,17 +1460,17 @@ def forward_backward_pipelining_with_interleaving(
     ), 'recv_next_wait_handles should be cleared at the end of a step'
 
     if config.finalize_model_grads_func is not None and not forward_only:
+        pass
+        # # If defer_embedding_wgrad_compute is enabled we need to do the
+        # # weight gradient GEMM's here.
+        # finish_embedding_wgrad_compute(config, embedding_module)
 
-        # If defer_embedding_wgrad_compute is enabled we need to do the
-        # weight gradient GEMM's here.
-        finish_embedding_wgrad_compute(config, embedding_module)
-
-        # Finalize model grads (perform full grad all-reduce / reduce-scatter for
-        # data parallelism, layernorm all-reduce for sequence parallelism, and
-        # embedding all-reduce for pipeline parallelism).
-        config.finalize_model_grads_func(
-            model, total_num_tokens if config.calculate_per_token_loss else None
-        )
+        # # Finalize model grads (perform full grad all-reduce / reduce-scatter for
+        # # data parallelism, layernorm all-reduce for sequence parallelism, and
+        # # embedding all-reduce for pipeline parallelism).
+        # config.finalize_model_grads_func(
+        #     model, total_num_tokens if config.calculate_per_token_loss else None
+        # )
 
     # Restore config.grad_sync_func and config.param_sync_func.
     if forward_only:
@@ -1712,7 +1712,7 @@ def forward_backward_pipelining_without_interleaving(
     # Input, output tensors only need to be saved when doing backward passes
     input_tensors = None
     output_tensors = None
-    total_num_tokens = torch.tensor(0, dtype=torch.int).cuda()
+    #total_num_tokens = torch.tensor(0, dtype=torch.int).cuda()
 
     if not forward_only:
         input_tensors = []
@@ -1746,7 +1746,7 @@ def forward_backward_pipelining_without_interleaving(
             encoder_decoder_xattn=encoder_decoder_xattn,
         )
         send_forward(output_tensor, send_tensor_shapes, config)
-        total_num_tokens += num_tokens.item()
+        #total_num_tokens += num_tokens.item()
 
         if not forward_only:
             input_tensors.append(input_tensor)
@@ -1787,7 +1787,7 @@ def forward_backward_pipelining_without_interleaving(
             current_microbatch=i + num_warmup_microbatches,
             encoder_decoder_xattn=encoder_decoder_xattn,
         )
-        total_num_tokens += num_tokens.item()
+        ##total_num_tokens += num_tokens.item()
 
         if forward_only:
             send_forward(output_tensor, send_tensor_shapes, config)
@@ -1859,17 +1859,17 @@ def forward_backward_pipelining_without_interleaving(
                 config.grad_sync_func(model.parameters())
 
     if config.finalize_model_grads_func is not None and not forward_only:
+        pass
+        # # If defer_embedding_wgrad_compute is enabled we need to do the
+        # # weight gradient GEMM's here.
+        # finish_embedding_wgrad_compute(config, embedding_module)
 
-        # If defer_embedding_wgrad_compute is enabled we need to do the
-        # weight gradient GEMM's here.
-        finish_embedding_wgrad_compute(config, embedding_module)
-
-        # Finalize model grads (perform full grad all-reduce / reduce-scatter for
-        # data parallelism, layernorm all-reduce for sequence parallelism, and
-        # embedding all-reduce for pipeline parallelism).
-        config.finalize_model_grads_func(
-            [model], total_num_tokens if config.calculate_per_token_loss else None
-        )
+        # # Finalize model grads (perform full grad all-reduce / reduce-scatter for
+        # # data parallelism, layernorm all-reduce for sequence parallelism, and
+        # # embedding all-reduce for pipeline parallelism).
+        # config.finalize_model_grads_func(
+        #     [model], ##total_num_tokens if config.calculate_per_token_loss else None
+        # )
 
     if config.timers is not None:
         config.timers('forward-backward').stop()
