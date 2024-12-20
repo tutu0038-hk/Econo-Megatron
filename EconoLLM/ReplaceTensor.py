@@ -1379,9 +1379,9 @@ def _retain_grad(self):
 
 def init(rank0, world_size0):
     
-    path = os.getcwd() + "/result/LinearPara.pth" 
-    linearModel = torch.load(path)
-    path = os.getcwd() + "/result/SoftMax.pth" 
+    #path = os.getcwd() + "/result/LinearPara.pth" 
+    #linearModel = torch.load(path)
+    #path = os.getcwd() + "/result/SoftMax.pth" 
     #softmaxModel = torch.load(path)
 
     memorySpeed = 3.35 * TB
